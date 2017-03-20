@@ -1,0 +1,28 @@
+Description: Fixed jsoncpp include path
+Origin: vendor
+Author: Alexandre Viau <aviau@debian.org>
+Reviewed-by: Alexandre Viau <aviau@debian.org>
+Last-Update: 2016-04-22
+
+--- a/daemon/src/archiver.cpp
++++ b/daemon/src/archiver.cpp
+@@ -29,7 +29,7 @@
+ #include "logger.h"
+ 
+ #include <opendht/crypto.h>
+-#include <json/json.h>
++#include <jsoncpp/json/json.h>
+ #include <zlib.h>
+ 
+ #include <sys/stat.h>
+--- a/daemon/src/im/message_engine.cpp
++++ b/daemon/src/im/message_engine.cpp
+@@ -24,7 +24,7 @@
+ #include "client/ring_signal.h"
+ #include "dring/account_const.h"
+ 
+-#include <json/json.h>
++#include <jsoncpp/json/json.h>
+ 
+ #include <fstream>
+ 

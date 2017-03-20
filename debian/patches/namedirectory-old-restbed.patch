@@ -1,0 +1,12 @@
+--- a/daemon/src/ringdht/namedirectory.cpp
++++ b/daemon/src/ringdht/namedirectory.cpp
+@@ -92,9 +92,6 @@
+ size_t getContentLength(restbed::Response& reply)
+ {
+     size_t length = 0;
+-#ifndef RESTBED_OLD_API
+-    length =
+-#endif
+     reply.get_header("Content-Length", length);
+     return length;
+ }
