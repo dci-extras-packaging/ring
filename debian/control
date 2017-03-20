@@ -91,3 +91,14 @@ Description: Secure and distributed voice, video and chat platform - daemon
  in the hands of the user.
  .
  This package contains the Ring daemon: dring.
+
+Package: ring-dev
+Architecture: any
+Depends: ${shlibs:Depends},
+         ${misc:Depends}
+Description: Secure and distributed voice, video and chat platform - daemon
+ Ring (ring.cx) is a secure and distributed voice, video and chat communication
+ platform that requires no centralized server and leaves the power of privacy
+ in the hands of the user.
+ .
+ This package contains the development headers for ring.
