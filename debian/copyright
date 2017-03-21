@@ -6,6 +6,7 @@ Files-Excluded: client-windows/*
                 client-android/*
                 client-macosx/*
                 client-ios/*
+                client-uwp/*
                 daemon/contrib/tarballs/ffmpeg*
                 daemon/contrib/tarballs/flac*
                 daemon/contrib/tarballs/gmp*

@@ -36,6 +36,8 @@ override_dh_auto_configure:
         ../bootstrap \
 				--disable-downloads \
 				--no-checksums \
+				--enable-opendht \
+				--enable-pjproject \
 				--disable-ogg \
 				--disable-flac \
 				--disable-vorbis \
@@ -52,7 +54,6 @@ override_dh_auto_configure:
 				--disable-vpx \
 				--disable-x264 \
 				--disable-yaml-cpp \
-				--disable-opendht \
 				--disable-natpmp && \
 		make list && \
 		make -j$(NO_CPUS) V=1
