@@ -1,19 +1,7 @@
-From d0096d8bc25bb51f54e085725c2feb51946a66d9 Mon Sep 17 00:00:00 2001
-From: Nicolas Jager <nicolas.jager@savoirfairelinux.com>
-Date: Tue, 28 Mar 2017 10:24:51 -0400
-Subject: [PATCH] Account : rename requestTrust() to sendContactRequest()
-
-Change-Id: I171b2c53da4dbcd4700fcef2af6c07822c222731
-Reviewed-by: Stepan Salenikovich <stepan.salenikovich@savoirfairelinux.com>
----
- src/account.cpp | 8 ++++----
- src/account.h   | 6 +++---
- 2 files changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/src/account.cpp b/src/account.cpp
-index c677656..46acdac 100644
---- a/src/account.cpp
-+++ b/src/account.cpp
+diffa/lrc/src/account.cpp b/src/account.cpp
+indea/lrc/x c677656..46acdac 100644
+--- a/lrc/src/account.cpp
++++ a/lrc/src/account.cpp
 @@ -1359,7 +1359,7 @@ bool Account::banCertificate(Certificate* c)
  }
  
@@ -42,10 +30,10 @@ index c677656..46acdac 100644
  {
     if ((!c) || (c->remoteId().isEmpty()))
        return false;
-diff --git a/src/account.h b/src/account.h
-index 7fb92ce..96f7591 100644
---- a/src/account.h
-+++ b/src/account.h
+diffa/lrc/src/account.h b/src/account.h
+indea/lrc/x 7fb92ce..96f7591 100644
+--- a/lrc/src/account.h
++++ a/lrc/src/account.h
 @@ -477,9 +477,9 @@ class LIB_EXPORT Account : public ItemBase {
        Q_INVOKABLE bool supportScheme   ( URI::SchemeType type ) const;
        Q_INVOKABLE bool allowCertificate( Certificate* c       )      ;
