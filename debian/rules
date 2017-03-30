@@ -75,18 +75,6 @@ override_dh_auto_configure:
 			-DCMAKE_BUILD_TYPE=Debug \
 			..
 
-	############################
-	## gnome client configure ##
-	############################
-	cd client-gnome && \
-		mkdir build && \
-		cd build && \
-		cmake \
-			-DCMAKE_INSTALL_PREFIX=/usr \
-			-DLibRingClient_PROJECT_DIR=/$(CURDIR)/lrc \
-			-DGSETTINGS_LOCALCOMPILE=OFF \
-			..
-
 	dh_auto_configure
 
 override_dh_auto_build:
@@ -100,11 +88,6 @@ override_dh_auto_build:
 	## libringclient build ##
 	#########################
 	make -C lrc/build -j$(NO_CPUS) V=1
-
-	########################
-	## gnome client build ##
-	########################
-	make -C client-gnome/build LDFLAGS="-lpthread" -j$(NO_CPUS) V=1
 
 override_dh_auto_clean:
 	################################
@@ -124,12 +107,6 @@ override_dh_auto_clean:
 	#########################
 	if [ -f lrc/build/Makefile ]; then make -C lrc/build distclean; fi
 	rm -rfv lrc/build
-
-	########################
-	## gnome client clean ##
-	########################
-	if [ -f client-gnome/build/Makefile ]; then make -C client-gnome/build distclean; fi
-	rm -rfv client-gnome/build
 
 override_dh_auto_install:
 	#########################
@@ -155,14 +132,6 @@ override_dh_auto_install:
 	rm -rfv $(CURDIR)/debian/ring/usr/lib/cmake
 
 	cd lrc/build && make DESTDIR=$(CURDIR)/debian/tmp install
-
-	##########################
-	## gnome client install ##
-	##########################
-	cd client-gnome/build && make DESTDIR=$(CURDIR)/debian/ring install
-
-	# Remove ring binary: it is not needed for now
-	rm $(CURDIR)/debian/ring/usr/bin/ring.cx
 
 tmpdir:= $(shell mktemp -d)
 workdir:= $(shell pwd)
