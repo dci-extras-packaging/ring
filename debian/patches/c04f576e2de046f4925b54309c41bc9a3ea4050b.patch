@@ -1,26 +1,7 @@
-From c04f576e2de046f4925b54309c41bc9a3ea4050b Mon Sep 17 00:00:00 2001
-From: Nicolas Jager <nicolas.jager@savoirfairelinux.com>
-Date: Thu, 23 Mar 2017 07:06:46 -0400
-Subject: [PATCH] ensureUid() : fix while condition
-
-- one of the conditions on the uid are made on every Person stored
-in m_hPersonsByUid (PersonModelPrivate). But the condition of
-existence of Person itself is missing, leading to infinite loop.
-
-- this patch fix it by adding the missing condition, checking the
-existence of a Person stored in m_hPersonsByUid with the uid to
-check.
-
-Change-Id: I9ea9b6c02375c9dbfdf4ccffab619a731c858174
-Reviewed-by: Guillaume Roguez <guillaume.roguez@savoirfairelinux.com>
----
- src/person.cpp | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/src/person.cpp b/src/person.cpp
-index 951bd6a..e48cb63 100644
---- a/src/person.cpp
-+++ b/src/person.cpp
+diffa/lrc/src/person.cpp b/src/person.cpp
+indea/lrc/x 951bd6a..e48cb63 100644
+--- a/lrc/src/person.cpp
++++ a/lrc/src/person.cpp
 @@ -769,7 +769,9 @@ Person::ensureUid()
      static std::mt19937_64 rand {seq};
      static std::uniform_int_distribution<uint64_t> id_generator;
