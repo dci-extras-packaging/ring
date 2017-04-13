@@ -1,19 +1,15 @@
 diffa/lrc/CMakeLists.txt b/CMakeLists.txt
-indea/lrc/x 94e110a..b0beaf4 100644
+indea/lrc/x a57fe87..b0beaf4 100644
 --- a/lrc/CMakeLists.txt
-+++ a/lrc/CMakeLists.txt
-@@ -174,22 +174,16 @@ IF(${ENABLE_LIBWRAP} MATCHES true)
-    ADD_DEFINITIONS(-DENABLE_LIBWRAP=true) # Use native calls (no dbus)
-    ADD_DEFINITIONS(-Wno-unknown-pragmas)
++++ b/lrc/CMakeLists.txt
+@@ -176,18 +176,12 @@
     SET(ENABLE_QT5 true) # Use Qt5
--   MESSAGE("Compiling with qtwrapper enabled, Qt5 enabled.")
--
--   INCLUDE_DIRECTORIES (${CMAKE_SOURCE_DIR}/src/qtwrapper/)
-+   MESSAGE(STATUS "Compiling with qtwrapper enabled, Qt5 enabled.")
+    MESSAGE(STATUS "Compiling with qtwrapper enabled, Qt5 enabled.")
  
+-   INCLUDE_DIRECTORIES (${CMAKE_SOURCE_DIR}/src/qtwrapper/)
+-
     IF(${VERBOSE_IPC} MATCHES true)
--      MESSAGE("Adding more debug output")
-+      MESSAGE(STATUS "Adding more debug output")
+       MESSAGE(STATUS "Adding more debug output")
        ADD_DEFINITIONS(-DVERBOSE_IPC=true)
     ENDIF()
  ENDIF()
@@ -23,12 +19,9 @@ indea/lrc/x 94e110a..b0beaf4 100644
 -ENDIF()
 -
  IF(NOT (${ENABLE_VIDEO} MATCHES false))
--   MESSAGE("VIDEO enabled")
-+   MESSAGE(STATUS "VIDEO enabled")
+    MESSAGE(STATUS "VIDEO enabled")
     SET(ENABLE_VIDEO 1 CACHE BOOLEAN "Enable video")
-    add_definitions( -DENABLE_VIDEO=true )
- ENDIF(NOT (${ENABLE_VIDEO} MATCHES false))
-@@ -199,9 +193,6 @@ ENDIF(NOT (${ENABLE_VIDEO} MATCHES false))
+@@ -199,9 +193,6 @@
  SET(GENERIC_LIB_VERSION "1.0.0")
  
  INCLUDE_DIRECTORIES(SYSTEM ${QT_INCLUDES} )
@@ -38,7 +31,7 @@ indea/lrc/x 94e110a..b0beaf4 100644
  
  # Build dbus interfaces
  IF(DEFINED RING_XML_INTERFACES_DIR)
-@@ -622,9 +613,20 @@ ENDIF()
+@@ -622,9 +613,20 @@
  
  QT5_WRAP_CPP(LIB_HEADER_MOC ${libringclient_PRIVATE_HDRS})
  
@@ -60,7 +53,7 @@ indea/lrc/x 94e110a..b0beaf4 100644
  IF(NOT ${ENABLE_STATIC} MATCHES false)
     ADD_LIBRARY( ringclient_static  STATIC ${libringclient_LIB_SRCS} ${LIB_HEADER_MOC} )
     QT5_USE_MODULES(ringclient_static Core)
-@@ -653,11 +655,31 @@ ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+@@ -653,11 +655,31 @@
  ENDIF()
  
  
@@ -92,7 +85,7 @@ indea/lrc/x 94e110a..b0beaf4 100644
  IF(${ENABLE_LIBWRAP} MATCHES true)
     IF(NOT ${ring_BIN} MATCHES "ring_BIN-NOTFOUND")
        TARGET_LINK_LIBRARIES( ringclient
-@@ -676,6 +698,18 @@ IF(${ENABLE_LIBWRAP} MATCHES true)
+@@ -676,6 +698,18 @@
           qtwrapper
           ${ring_BIN}
        )
@@ -111,7 +104,7 @@ indea/lrc/x 94e110a..b0beaf4 100644
     ENDIF()
  ELSE()
     TARGET_LINK_LIBRARIES( ringclient
-@@ -695,14 +729,29 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+@@ -695,14 +729,29 @@
     ENDIF()
  ENDIF()
  
@@ -143,7 +136,7 @@ indea/lrc/x 94e110a..b0beaf4 100644
    COMPONENT Devel
  )
  
-@@ -731,11 +780,6 @@ INSTALL( FILES ${libringclient_interface_LIB_HDRS}
+@@ -731,11 +780,6 @@
    COMPONENT Devel
  )
  
@@ -155,7 +148,7 @@ indea/lrc/x 94e110a..b0beaf4 100644
  INSTALL( TARGETS ringclient
    ARCHIVE DESTINATION ${SANE_LIBRARY_PATH}
    RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
-@@ -751,18 +795,12 @@ IF(NOT ${ENABLE_STATIC} MATCHES false)
+@@ -751,18 +795,12 @@
     )
  ENDIF()
  
@@ -175,7 +168,7 @@ indea/lrc/x 94e110a..b0beaf4 100644
     INSTALL_DESTINATION ${LIB_INSTALL_DIR}/libringclient/cmake
     PATH_VARS INCLUDE_INSTALL_DIR
  )
-@@ -772,12 +810,6 @@ INSTALL( FILES ${libringclient_CONFIG_PATH}
+@@ -772,12 +810,6 @@
    COMPONENT Devel
  )
  
@@ -188,11 +181,9 @@ indea/lrc/x 94e110a..b0beaf4 100644
  # translations
  IF( Qt5LinguistTools_FOUND )
     # translation template file
-diffa/lrc/cmake/FindRing.cmake b/cmake/FindRing.cmake
-indea/lrc/x 17fcafc..7adeab0 100644
 --- a/lrc/cmake/FindRing.cmake
-+++ a/lrc/cmake/FindRing.cmake
-@@ -10,8 +10,11 @@ ELSEIF(EXISTS ${RING_INCLUDE_DIR}/dring.h)
++++ b/lrc/cmake/FindRing.cmake
+@@ -10,6 +10,9 @@
     SET(ring_INCLUDE_DIRS ${RING_INCLUDE_DIR})
  ELSEIF(EXISTS ${RING_BUILD_DIR}/dring/dring.h)
     SET(ring_INCLUDE_DIRS ${RING_BUILD_DIR}/dring)
@@ -200,12 +191,9 @@ indea/lrc/x 17fcafc..7adeab0 100644
 +   MESSAGE(STATUS "Daemon header not found, DBus mode only")
 +   SET(RING_FOUND true)
  ELSE()
--   MESSAGE("Daemon header not found!
-+   MESSAGE(STATUS "Daemon header not found!
+    MESSAGE(STATUS "Daemon header not found!
     Add -DRING_BUILD_DIR or -DCMAKE_INSTALL_PREFIX")
-    SET(RING_FOUND false)
- ENDIF()
-@@ -26,7 +29,7 @@ FIND_LIBRARY(ring_BIN NAMES ring
+@@ -26,7 +29,7 @@
  )
  
  # Try a static version too
@@ -214,7 +202,7 @@ indea/lrc/x 17fcafc..7adeab0 100644
     SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a;.lib")
  
     FIND_LIBRARY(ring_BIN NAMES ring
-@@ -35,11 +38,11 @@ IF(${ring_BIN} MATCHES "")
+@@ -35,9 +38,9 @@
        PATHS ${CMAKE_INSTALL_PREFIX}/libexec
     )
  
@@ -227,15 +215,9 @@ indea/lrc/x 17fcafc..7adeab0 100644
  
  ENDIF()
  
--MESSAGE("Ring daemon header is in " ${ring_INCLUDE_DIRS})
--MESSAGE("Ring library path is " ${ring_BIN})
-+MESSAGE(STATUS "Ring daemon header is in " ${ring_INCLUDE_DIRS})
-+MESSAGE(STATUS "Ring library path is " ${ring_BIN})
-diffa/lrc/cmake/LibRingClientConfig.cmake.in b/cmake/LibRingClientConfig.cmake.in
-indea/lrc/x 1cc77b8..bfd76aa 100644
 --- a/lrc/cmake/LibRingClientConfig.cmake.in
-+++ a/lrc/cmake/LibRingClientConfig.cmake.in
-@@ -45,3 +45,44 @@ FIND_PACKAGE_HANDLE_STANDARD_ARGS(LIB_RING_CLIENT
++++ b/lrc/cmake/LibRingClientConfig.cmake.in
+@@ -45,3 +45,44 @@
      VERSION_VAR
          @GENERIC_LIB_VERSION@
  )
@@ -280,11 +262,9 @@ indea/lrc/x 1cc77b8..bfd76aa 100644
 +if(NOT TARGET ringclient AND NOT ringclient_BINARY_DIR)
 +  include("@SANE_LIBRARY_PATH@/cmake/LibRingClient/LibRingClientTargets.cmake")
 +endif()
-diffa/lrc/src/account.h b/src/account.h
-indea/lrc/x 96f7591..36612b6 100644
 --- a/lrc/src/account.h
-+++ a/lrc/src/account.h
-@@ -352,7 +352,7 @@ class LIB_EXPORT Account : public ItemBase {
++++ b/lrc/src/account.h
+@@ -352,7 +352,7 @@
         *Perform an action
         * @return If the state changed
         */
@@ -293,7 +273,7 @@ indea/lrc/x 96f7591..36612b6 100644
        Account::EditState editState() const;
  
        //Getters
-@@ -460,10 +460,10 @@ class LIB_EXPORT Account : public ItemBase {
+@@ -460,10 +460,10 @@
        uint    internalId                   () const;
        QString lastSipRegistrationStatus    () const;
  
@@ -308,7 +288,7 @@ indea/lrc/x 96f7591..36612b6 100644
  
        bool   isUsedForOutgogingCall () const;
        uint   totalCallCount         () const;
-@@ -575,6 +575,7 @@ class LIB_EXPORT Account : public ItemBase {
+@@ -575,6 +575,7 @@
  
        QSharedPointer<AccountPrivate> d_ptr;
        Q_DECLARE_PRIVATE(Account)
@@ -316,7 +296,7 @@ indea/lrc/x 96f7591..36612b6 100644
  
     Q_SIGNALS:
        ///The account state (Invalid,Trying,Registered) changed
-@@ -603,8 +604,8 @@ class LIB_EXPORT Account : public ItemBase {
+@@ -603,8 +604,8 @@
        /// contact request accepted
        void contactRequestAccepted(const ContactRequest*);
  };
@@ -326,11 +306,9 @@ indea/lrc/x 96f7591..36612b6 100644
  Q_DECLARE_METATYPE(Account::RegistrationState)
  Q_DECLARE_METATYPE(Account::EditAction)
  Q_DECLARE_METATYPE(Account::Protocol)
-diffa/lrc/src/callmodel.cpp b/src/callmodel.cpp
-indea/lrc/x 30cc1fa..79c406f 100644
 --- a/lrc/src/callmodel.cpp
-+++ a/lrc/src/callmodel.cpp
-@@ -112,6 +112,7 @@ class CallModelPrivate final : public QObject
++++ b/lrc/src/callmodel.cpp
+@@ -112,6 +112,7 @@
        void slotNewRecordingAvail  ( const QString& callId    , const QString& filePath);
        void slotCallChanged        (                                                   );
        void slotStateChanged       ( Call::State newState, Call::State previousState   );
@@ -338,7 +316,7 @@ indea/lrc/x 30cc1fa..79c406f 100644
        void slotDTMFPlayed         ( const QString& str                                );
        void slotRecordStateChanged ( const QString& callId    , bool state             );
        void slotAudioMuted         ( const QString& callId    , bool state             );
-@@ -468,6 +469,7 @@ Call* CallModelPrivate::addCall2(Call* call, Call* parentCall)
+@@ -468,6 +469,7 @@
        emit q_ptr->dataChanged(idx, idx);
        connect(call, &Call::changed, this, &CallModelPrivate::slotCallChanged);
        connect(call,&Call::stateChanged,this,&CallModelPrivate::slotStateChanged);
@@ -346,7 +324,7 @@ indea/lrc/x 30cc1fa..79c406f 100644
        connect(call,SIGNAL(dtmfPlayed(QString)),this,SLOT(slotDTMFPlayed(QString)));
        connect(call,&Call::videoStarted,[this,call](Video::Renderer* r) {
           emit q_ptr->rendererAdded(call, r);
-@@ -1363,6 +1365,13 @@ void CallModelPrivate::slotStateChanged(Call::State newState, Call::State previo
+@@ -1363,6 +1365,13 @@
        emit q_ptr->callStateChanged(call, previousState);
  }
  
@@ -360,11 +338,9 @@ indea/lrc/x 30cc1fa..79c406f 100644
  ///Update model if the data change
  void CallModelPrivate::slotCallChanged()
  {
-diffa/lrc/src/callmodel.h b/src/callmodel.h
-indea/lrc/x 07e6b08..38ff704 100644
 --- a/lrc/src/callmodel.h
-+++ a/lrc/src/callmodel.h
-@@ -157,6 +157,8 @@ Q_OBJECT
++++ b/lrc/src/callmodel.h
+@@ -157,6 +157,8 @@
     void rendererRemoved         ( Call* call, Video::Renderer* renderer   );
     ///Notify when a media is added
     void mediaAdded              ( Call* call, Media::Media* media         );
@@ -373,10 +349,8 @@ indea/lrc/x 07e6b08..38ff704 100644
     ///Notify when a media state change
     void mediaStateChanged( Call* call, Media::Media* media, const Media::Media::State s, const Media::Media::State m);
  };
-diffa/lrc/src/media/recordingmodel.cpp b/src/media/recordingmodel.cpp
-indea/lrc/x 99b6ea5..f09644a 100644
 --- a/lrc/src/media/recordingmodel.cpp
-+++ a/lrc/src/media/recordingmodel.cpp
++++ b/lrc/src/media/recordingmodel.cpp
 @@ -1,5 +1,6 @@
  /****************************************************************************
 - *   Copyright (C) 2015-2016 by Savoir-faire Linux                               *
@@ -470,14 +444,15 @@ indea/lrc/x 99b6ea5..f09644a 100644
 +    RecordingNode*                 m_pAudioVideo    {nullptr};
 +    LocalTextRecordingCollection*  m_pTextRecordingCollection;
 +    int                            m_UnreadCount             ;
- 
--   //RecordingNode*                 m_pFiles     ; //TODO uncomment when implemented in DRing
++
 +    // Helpers
 +    void initCategories();
 +    void forwardInsertion(TextRecording* r, ContactMethod* cm, Media::Direction direction);
 +    void updateUnreadCount(const int count);
 +    void emitChangedProxy();
  
+-   //RecordingNode*                 m_pFiles     ; //TODO uncomment when implemented in DRing
+-
 -   void forwardInsertion(const QMap<QString,QString>& message, ContactMethod* cm, Media::Media::Direction direction);
 -   void updateUnreadCount(const int count);
 +    Q_DISABLE_COPY(RecordingModelPrivate)
@@ -548,7 +523,7 @@ indea/lrc/x 99b6ea5..f09644a 100644
  {
      m_UnreadCount += count;
      if (m_UnreadCount <= 0) {
-@@ -124,20 +136,20 @@ void RecordingModelPrivate::updateUnreadCount(const int count)
+@@ -124,20 +136,20 @@
  
  Media::RecordingModel::~RecordingModel()
  {
@@ -576,7 +551,7 @@ indea/lrc/x 99b6ea5..f09644a 100644
  }
  
  Media::RecordingModel& Media::RecordingModel::instance()
-@@ -148,167 +160,231 @@ Media::RecordingModel& Media::RecordingModel::instance()
+@@ -148,167 +160,231 @@
  
  QHash<int,QByteArray> Media::RecordingModel::roleNames() const
  {
@@ -614,20 +589,21 @@ indea/lrc/x 99b6ea5..f09644a 100644
 -      return QVariant();
 +    if (!index.isValid())
 +        return QVariant();
-+
-+    const auto modelItem = static_cast<RecordingNode*>(index.internalPointer());
  
 -   //RecordingNode* modelItem = static_cast<RecordingNode*>(index.internalPointer());
++    const auto modelItem = static_cast<RecordingNode*>(index.internalPointer());
+ 
+-   switch (role) {
+-      case Qt::DisplayRole:
+-         return "foo";
+-   }
 +    if (modelItem->m_Type == RecordingNode::Type::TOP_LEVEL) {
 +        if (index.column() == 0 && role == Qt::DisplayRole)
 +            return modelItem->m_CatName;
 +        if (index.column() == 1 && role == Qt::DisplayRole)
 +            return static_cast<int>(modelItem->m_lChildren.size());
  
--   switch (role) {
--      case Qt::DisplayRole:
--         return "foo";
--   }
+-   return QVariant();
 +        return {};
 +    }
 +
@@ -657,8 +633,7 @@ indea/lrc/x 99b6ea5..f09644a 100644
 +                        return tr("N/A");
 +            }
 +    }
- 
--   return QVariant();
++
 +    return QVariant();
  }
  
@@ -760,74 +735,26 @@ indea/lrc/x 99b6ea5..f09644a 100644
  {
 -   if (column || (!parent.isValid() && row >= d_ptr->m_lCategories.size()))
 -      return QModelIndex();
--
--   const RecordingNode* modelItem = parent.isValid() ? static_cast<const RecordingNode*>(parent.internalPointer()) : d_ptr->m_lCategories[row];
--
--   if (row >= modelItem->m_lChildren.size())
--      return QModelIndex();
--
--   return createIndex(row,0,modelItem->m_lChildren[row]);
--}
--
--bool Media::RecordingModel::addItemCallback(const Recording* item)
--{
--   Q_UNUSED(item)
--
--   //Create some categories
--   if (d_ptr->m_lCategories.size() == 0) {
--      d_ptr->m_pText = new RecordingNode(RecordingNode::Type::TOP_LEVEL);
--      d_ptr->m_pText->m_CatName = tr("Text messages");
--      d_ptr->m_pText->m_Index = 0;
--      d_ptr->m_lCategories << d_ptr->m_pText;
--
--      d_ptr->m_pAudioVideo = new RecordingNode(RecordingNode::Type::TOP_LEVEL);
--      d_ptr->m_pAudioVideo->m_CatName = tr("Audio/Video");
--      d_ptr->m_pAudioVideo->m_Index = 1;
--      d_ptr->m_lCategories << d_ptr->m_pAudioVideo;
 +    const int count = static_cast<int>(d_ptr->m_lCategories.size());
- 
--      /*d_ptr->m_pFiles = new RecordingNode(RecordingNode::Type::TOP_LEVEL);
--      d_ptr->m_pFiles->m_CatName = tr("Files");
--      d_ptr->m_pFiles->m_Index = 2;
--      d_ptr->m_lCategories << m_pFiles;*/
--   }
++
 +    if (column > 1 || row < 0 || ((!parent.isValid()) && row >= count))
 +        return {};
  
--   //Categorize by general media group
--   RecordingNode* parent = nullptr;
+-   const RecordingNode* modelItem = parent.isValid() ? static_cast<const RecordingNode*>(parent.internalPointer()) : d_ptr->m_lCategories[row];
 +    if (!parent.isValid())
 +        return createIndex(row, column, d_ptr->m_lCategories[row]);
  
--   if (item->type() == Recording::Type::TEXT)
--      parent = d_ptr->m_pText;
--   else if (item->type() == Recording::Type::AUDIO_VIDEO)
--      parent = d_ptr->m_pAudioVideo;
--   /*else if (item->type() == Recording::Type::FILE))
--      parent = d_ptr->m_pFiles;*/
+-   if (row >= modelItem->m_lChildren.size())
+-      return QModelIndex();
 +    const auto modelItem = static_cast<const RecordingNode*>(parent.internalPointer());
  
--   //Insert the item
--   if (parent) {
+-   return createIndex(row,0,modelItem->m_lChildren[row]);
 +    if (row >= static_cast<int>(modelItem->m_lChildren.size()))
 +        return {};
- 
--      beginInsertRows(index(parent->m_Index,0),parent->m_lChildren.size(),parent->m_lChildren.size());
--
--      RecordingNode* n = new RecordingNode       ( RecordingNode::Type::SESSION );
--      n->m_pRec        = const_cast<Recording*>  ( item                         );
--      n->m_Index       = parent->m_lChildren.size(                              );
--      parent->m_lChildren << n;
--
--      endInsertRows();
++
 +    return createIndex(row, column, modelItem->m_lChildren[row]);
 +}
- 
--      if (item->type() == Recording::Type::TEXT) {
--         const TextRecording* r = static_cast<const TextRecording*>(item);
--         connect(r, &TextRecording::messageInserted, d_ptr, &RecordingModelPrivate::forwardInsertion);
--         connect(r, &TextRecording::unreadCountChange, d_ptr, &RecordingModelPrivate::updateUnreadCount);
--      }
++
 +void Media::RecordingModelPrivate::initCategories()
 +{
 +    if (m_lCategories.size())
@@ -845,19 +772,66 @@ indea/lrc/x 99b6ea5..f09644a 100644
 +    m_pAudioVideo->m_Index   = 1;
 +    m_lCategories.push_back(m_pAudioVideo);
 +    q_ptr->endInsertRows();
-+}
+ }
+ 
+ bool Media::RecordingModel::addItemCallback(const Recording* item)
+ {
+-   Q_UNUSED(item)
++    Q_UNUSED(item)
+ 
+-   //Create some categories
+-   if (d_ptr->m_lCategories.size() == 0) {
+-      d_ptr->m_pText = new RecordingNode(RecordingNode::Type::TOP_LEVEL);
+-      d_ptr->m_pText->m_CatName = tr("Text messages");
+-      d_ptr->m_pText->m_Index = 0;
+-      d_ptr->m_lCategories << d_ptr->m_pText;
+-
+-      d_ptr->m_pAudioVideo = new RecordingNode(RecordingNode::Type::TOP_LEVEL);
+-      d_ptr->m_pAudioVideo->m_CatName = tr("Audio/Video");
+-      d_ptr->m_pAudioVideo->m_Index = 1;
+-      d_ptr->m_lCategories << d_ptr->m_pAudioVideo;
+-
+-      /*d_ptr->m_pFiles = new RecordingNode(RecordingNode::Type::TOP_LEVEL);
+-      d_ptr->m_pFiles->m_CatName = tr("Files");
+-      d_ptr->m_pFiles->m_Index = 2;
+-      d_ptr->m_lCategories << m_pFiles;*/
+-   }
+-
+-   //Categorize by general media group
+-   RecordingNode* parent = nullptr;
+-
+-   if (item->type() == Recording::Type::TEXT)
+-      parent = d_ptr->m_pText;
+-   else if (item->type() == Recording::Type::AUDIO_VIDEO)
+-      parent = d_ptr->m_pAudioVideo;
+-   /*else if (item->type() == Recording::Type::FILE))
+-      parent = d_ptr->m_pFiles;*/
+-
+-   //Insert the item
+-   if (parent) {
+-
+-      beginInsertRows(index(parent->m_Index,0),parent->m_lChildren.size(),parent->m_lChildren.size());
+-
+-      RecordingNode* n = new RecordingNode       ( RecordingNode::Type::SESSION );
+-      n->m_pRec        = const_cast<Recording*>  ( item                         );
+-      n->m_Index       = parent->m_lChildren.size(                              );
+-      parent->m_lChildren << n;
+-
+-      endInsertRows();
+-
+-      if (item->type() == Recording::Type::TEXT) {
+-         const TextRecording* r = static_cast<const TextRecording*>(item);
+-         connect(r, &TextRecording::messageInserted, d_ptr, &RecordingModelPrivate::forwardInsertion);
+-         connect(r, &TextRecording::unreadCountChange, d_ptr, &RecordingModelPrivate::updateUnreadCount);
+-      }
++    d_ptr->initCategories();
  
 -      return true;
 -   }
-+bool Media::RecordingModel::addItemCallback(const Recording* item)
-+{
-+    Q_UNUSED(item)
-+
-+    d_ptr->initCategories();
-+
 +    //Categorize by general media group
 +    RecordingNode* parent = nullptr;
-+
+ 
+-   return false;
 +    if (item->type() == Recording::Type::TEXT)
 +        parent = d_ptr->m_pText;
 +    else if (item->type() == Recording::Type::AUDIO_VIDEO)
@@ -897,8 +871,7 @@ indea/lrc/x 99b6ea5..f09644a 100644
 +                );
 +        });
 +    }
- 
--   return false;
++
 +    return true;
  }
  
@@ -911,7 +884,7 @@ indea/lrc/x 99b6ea5..f09644a 100644
  }
  
  bool Media::RecordingModel::clearAllCollections() const
-@@ -329,35 +405,35 @@ void Media::RecordingModel::clear()
+@@ -329,35 +405,35 @@
  
  void Media::RecordingModel::collectionAddedCallback(CollectionInterface* backend)
  {
@@ -956,7 +929,7 @@ indea/lrc/x 99b6ea5..f09644a 100644
  }
  
  int  Media::RecordingModel::unreadCount() const
-@@ -368,9 +444,9 @@ int  Media::RecordingModel::unreadCount() const
+@@ -368,9 +444,9 @@
  ///Create or load the recording associated with the ContactMethod cm
  Media::TextRecording* Media::RecordingModel::createTextRecording(const ContactMethod* cm)
  {
@@ -968,10 +941,8 @@ indea/lrc/x 99b6ea5..f09644a 100644
  }
  
  #include <recordingmodel.moc>
-diffa/lrc/src/media/recordingmodel.h b/src/media/recordingmodel.h
-indea/lrc/x 5e2a846..5494400 100644
 --- a/lrc/src/media/recordingmodel.h
-+++ a/lrc/src/media/recordingmodel.h
++++ b/lrc/src/media/recordingmodel.h
 @@ -27,13 +27,13 @@
  #include "typedefs.h"
  #include "contactmethod.h"
@@ -987,11 +958,9 @@ indea/lrc/x 5e2a846..5494400 100644
  
  /**
   * This model host the Ring recordings. Recording sessions span one or
-diffa/lrc/src/media/textrecording.cpp b/src/media/textrecording.cpp
-indea/lrc/x 5db44d0..3985cc6 100644
 --- a/lrc/src/media/textrecording.cpp
-+++ a/lrc/src/media/textrecording.cpp
-@@ -343,9 +343,17 @@ QAbstractItemModel* Media::TextRecording::unreadInstantTextMessagingModel() cons
++++ b/lrc/src/media/textrecording.cpp
+@@ -343,9 +343,17 @@
  
  bool Media::TextRecording::isEmpty() const
  {
@@ -1010,11 +979,9 @@ indea/lrc/x 5db44d0..3985cc6 100644
  QHash<QByteArray,QByteArray> Media::TextRecordingPrivate::toJsons() const
  {
     QHash<QByteArray,QByteArray> ret;
-diffa/lrc/src/media/textrecording.h b/src/media/textrecording.h
-indea/lrc/x 6e46c8f..ddf6e24 100644
 --- a/lrc/src/media/textrecording.h
-+++ a/lrc/src/media/textrecording.h
-@@ -89,6 +89,8 @@ class LIB_EXPORT TextRecording : public Recording
++++ b/lrc/src/media/textrecording.h
+@@ -89,6 +89,8 @@
     QAbstractItemModel* instantTextMessagingModel(                         ) const;
     QAbstractItemModel* unreadInstantTextMessagingModel(                   ) const;
     bool                isEmpty                  (                         ) const;
@@ -1023,11 +990,9 @@ indea/lrc/x 6e46c8f..ddf6e24 100644
     bool                hasMimeType              ( const QString& mimeType ) const;
     QStringList         mimeTypes                (                         ) const;
     QVector<ContactMethod*> peers                (                         ) const;
-diffa/lrc/src/namedirectory.h b/src/namedirectory.h
-indea/lrc/x 8a43d07..91d6674 100644
 --- a/lrc/src/namedirectory.h
-+++ a/lrc/src/namedirectory.h
-@@ -26,7 +26,6 @@ class Account;
++++ b/lrc/src/namedirectory.h
+@@ -26,7 +26,6 @@
  class LIB_EXPORT NameDirectory : public QObject
  {
      Q_OBJECT
@@ -1035,7 +1000,7 @@ indea/lrc/x 8a43d07..91d6674 100644
  public:
  
      //Register name status
-@@ -52,9 +51,9 @@ class LIB_EXPORT NameDirectory : public QObject
+@@ -52,9 +51,9 @@
      static NameDirectory& instance();
  
      //Lookup
@@ -1048,7 +1013,7 @@ indea/lrc/x 8a43d07..91d6674 100644
  
  private:
      //Constructors & Destructors
-@@ -63,6 +62,7 @@ class LIB_EXPORT NameDirectory : public QObject
+@@ -63,6 +62,7 @@
  
      NameDirectoryPrivate* d_ptr;
      Q_DECLARE_PRIVATE(NameDirectory)
@@ -1056,7 +1021,7 @@ indea/lrc/x 8a43d07..91d6674 100644
  
  Q_SIGNALS:
      ///RegisterName has ended
-@@ -71,3 +71,7 @@ class LIB_EXPORT NameDirectory : public QObject
+@@ -71,3 +71,7 @@
      ///Name or address lookup has completed
      void registeredNameFound(Account* account, NameDirectory::LookupStatus status, const QString& address, const QString& name);
  };
@@ -1064,11 +1029,9 @@ indea/lrc/x 8a43d07..91d6674 100644
 +Q_DECLARE_METATYPE(NameDirectory*)
 +Q_DECLARE_METATYPE(NameDirectory::RegisterNameStatus)
 +Q_DECLARE_METATYPE(NameDirectory::LookupStatus)
-diffa/lrc/src/phonedirectorymodel.cpp b/src/phonedirectorymodel.cpp
-indea/lrc/x 588eccd..b0dd283 100644
 --- a/lrc/src/phonedirectorymodel.cpp
-+++ a/lrc/src/phonedirectorymodel.cpp
-@@ -635,6 +635,29 @@ ContactMethod* PhoneDirectoryModel::fromHash(const QString& hash)
++++ b/lrc/src/phonedirectorymodel.cpp
+@@ -636,6 +636,29 @@
     return nullptr;
  }
  
@@ -1098,10 +1061,8 @@ indea/lrc/x 588eccd..b0dd283 100644
  QVector<ContactMethod*> PhoneDirectoryModel::getNumbersByPopularity() const
  {
     return d_ptr->m_lPopularityIndex;
-diffa/lrc/src/phonedirectorymodel.h b/src/phonedirectorymodel.h
-indea/lrc/x 0e13786..404d868 100644
 --- a/lrc/src/phonedirectorymodel.h
-+++ a/lrc/src/phonedirectorymodel.h
++++ b/lrc/src/phonedirectorymodel.h
 @@ -19,6 +19,9 @@
  
  #include "typedefs.h"
@@ -1112,7 +1073,7 @@ indea/lrc/x 0e13786..404d868 100644
  //Qt
  #include <QtCore/QString>
  #include <QtCore/QAbstractTableModel>
-@@ -83,6 +86,8 @@ class LIB_EXPORT PhoneDirectoryModel : public QAbstractTableModel {
+@@ -83,6 +86,8 @@
     Q_INVOKABLE ContactMethod* fromHash (const QString& hash);
     Q_INVOKABLE ContactMethod* fromTemporary(const TemporaryContactMethod* number);
  
@@ -1121,11 +1082,9 @@ indea/lrc/x 0e13786..404d868 100644
     //Getter
     int count() const;
     bool callWithAccount() const;
-diffa/lrc/src/securityevaluationmodel.cpp b/src/securityevaluationmodel.cpp
-indea/lrc/x 06aa33d..54998cc 100644
 --- a/lrc/src/securityevaluationmodel.cpp
-+++ a/lrc/src/securityevaluationmodel.cpp
-@@ -43,8 +43,8 @@ const QString SecurityEvaluationModelPrivate::messages[enum_class_size<SecurityE
++++ b/lrc/src/securityevaluationmodel.cpp
+@@ -43,8 +43,8 @@
     /*VERIFY_ANSWER_ENABLED       */QObject::tr("The \"verify answer certificate\" option is disabled, this leave you vulnerable to man in the middle attack"),
     /*REQUIRE_CERTIFICATE_ENABLED */QObject::tr("None of your certificate provide a private key, this is required. Please select a private key"
                                         " or use a certificate with one built-in"),
@@ -1136,7 +1095,7 @@ indea/lrc/x 06aa33d..54998cc 100644
  };
  
  static const QString s1 = QObject::tr("Your certificate is expired, please contact your system administrator.");
-@@ -60,7 +60,7 @@ SecurityEvaluationModelPrivate::maximumSecurityLevel = {{
+@@ -60,7 +60,7 @@
     /* VERIFY_ANSWER_ENABLED            */ SecurityEvaluationModel::SecurityLevel::MEDIUM      ,
     /* REQUIRE_CERTIFICATE_ENABLED      */ SecurityEvaluationModel::SecurityLevel::WEAK        ,
     /* NOT_MISSING_CERTIFICATE          */ SecurityEvaluationModel::SecurityLevel::WEAK        ,
@@ -1145,7 +1104,7 @@ indea/lrc/x 06aa33d..54998cc 100644
  }};
  
  const TypedStateMachine< SecurityEvaluationModel::Severity , SecurityEvaluationModel::AccountSecurityChecks >
-@@ -73,7 +73,7 @@ SecurityEvaluationModelPrivate::flawSeverity = {{
+@@ -73,7 +73,7 @@
     /* VERIFY_ANSWER_ENABLED             */ SecurityEvaluationModel::Severity::ISSUE           ,
     /* REQUIRE_CERTIFICATE_ENABLED       */ SecurityEvaluationModel::Severity::ISSUE           ,
     /* NOT_MISSING_CERTIFICATE           */ SecurityEvaluationModel::Severity::WARNING         ,
@@ -1154,10 +1113,8 @@ indea/lrc/x 06aa33d..54998cc 100644
  }};
  
  const TypedStateMachine< SecurityEvaluationModel::SecurityLevel , Certificate::Checks > SecurityEvaluationModelPrivate::maximumCertificateSecurityLevel = {{
-diffa/lrc/src/useractionmodel.cpp b/src/useractionmodel.cpp
-indea/lrc/x fa9d71e..9c780e3 100644
 --- a/lrc/src/useractionmodel.cpp
-+++ a/lrc/src/useractionmodel.cpp
++++ b/lrc/src/useractionmodel.cpp
 @@ -29,6 +29,7 @@
  #include "accountmodel.h"
  #include "contactmethod.h"
@@ -1166,7 +1123,7 @@ indea/lrc/x fa9d71e..9c780e3 100644
  #include "globalinstances.h"
  #include "interfaces/pixmapmanipulatori.h"
  #include "interfaces/actionextenderi.h"
-@@ -157,7 +158,7 @@ const Matrix2D< UAM::Action, Call::State, bool > UserActionModelPrivate::availab
+@@ -157,7 +158,7 @@
   { UAMA::EMAIL_CONTACT     , {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
   { UAMA::COPY_CONTACT      , {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
   { UAMA::BOOKMARK          , {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
@@ -1175,7 +1132,7 @@ indea/lrc/x fa9d71e..9c780e3 100644
   { UAMA::ADD_CONTACT_METHOD, {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
   { UAMA::CALL_CONTACT      , {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
   { UAMA::EDIT_CONTACT      , {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
-@@ -358,7 +359,7 @@ const Matrix1D< UAMA, FlagPack<UAM::Context>> UserActionModelPrivate::actionCont
+@@ -358,7 +359,7 @@
     { UAMA::EMAIL_CONTACT     , UAM::Context::CONTACT     },
     { UAMA::COPY_CONTACT      , UAM::Context::MANAGEMENT  },
     { UAMA::BOOKMARK          , UAM::Context::MANAGEMENT  },
@@ -1184,7 +1141,7 @@ indea/lrc/x fa9d71e..9c780e3 100644
     { UAMA::ADD_CONTACT_METHOD, UAM::Context::MANAGEMENT  },
     { UAMA::CALL_CONTACT      , UAM::Context::CONTACT     },
     { UAMA::EDIT_CONTACT      , UAM::Context::CONTACT     },
-@@ -410,7 +411,7 @@ const Matrix2D< UAMA, Ring::ObjectType , bool  > UserActionModelPrivate::availab
+@@ -410,7 +411,7 @@
     { UAMA::EMAIL_CONTACT     , {{ true ,    true ,     true ,  false,    true ,        false     }}},
     { UAMA::COPY_CONTACT      , {{ true ,    true ,     true ,  false,    true ,        false     }}},
     { UAMA::BOOKMARK          , {{ true ,    true ,     true ,  false,    true ,        false     }}},
@@ -1193,7 +1150,7 @@ indea/lrc/x fa9d71e..9c780e3 100644
     { UAMA::ADD_CONTACT_METHOD, {{ true ,    true ,     true ,  false,    true ,        false     }}},
     { UAMA::CALL_CONTACT      , {{ true ,    true ,     true ,  false,    true ,        false     }}},
     { UAMA::EDIT_CONTACT      , {{ true ,    true ,     true ,  false,    true ,        false     }}},
-@@ -478,27 +479,33 @@ const Matrix1D< UAM::Action, bool(*)(const ContactMethod*)> UserActionModelPriva
+@@ -478,27 +479,33 @@
     { UAMA::JOIN              , nullptr                                         },
     { UAMA::ADD_NEW           , nullptr                                         },
     { UAMA::TOGGLE_VIDEO      , nullptr                                         },
@@ -1238,7 +1195,7 @@ indea/lrc/x fa9d71e..9c780e3 100644
  };
  #undef CM_CB
  
-@@ -523,7 +530,7 @@ m_pCall(nullptr), m_pActiveModel(nullptr), m_fContext(c)
+@@ -523,7 +530,7 @@
        { UAMA::EMAIL_CONTACT     , QObject::tr("Email contact"          )},
        { UAMA::COPY_CONTACT      , QObject::tr("Copy contact"           )},
        { UAMA::BOOKMARK          , QObject::tr("Bookmark"               )},
@@ -1247,7 +1204,7 @@ indea/lrc/x fa9d71e..9c780e3 100644
        { UAMA::ADD_CONTACT_METHOD, QObject::tr("Add phone number"       )},
        { UAMA::CALL_CONTACT      , QObject::tr("Call again"             )},
        { UAMA::EDIT_CONTACT      , QObject::tr("Edit contact details"   )},
-@@ -590,6 +597,7 @@ UserActionModel::UserActionModel(QAbstractItemModel* parent, const FlagPack<User
+@@ -590,6 +597,7 @@
        setSelectionModel(callmodel->selectionModel());
        connect(callmodel, &CallModel::callStateChanged , d_ptr.data(), &UserActionModelPrivate::updateActions);
        connect(callmodel, &CallModel::mediaStateChanged, d_ptr.data(), &UserActionModelPrivate::updateActions);
@@ -1255,7 +1212,7 @@ indea/lrc/x fa9d71e..9c780e3 100644
     }
     //TODO add other relevant models here Categorized*, RecentModel, etc
  
-@@ -829,8 +837,11 @@ bool UserActionModelPrivate::updateByAccount(UserActionModel::Action action, con
+@@ -829,8 +837,11 @@
  
  bool UserActionModelPrivate::updateByContactMethod(UserActionModel::Action action, const ContactMethod* cm)
  {
@@ -1268,7 +1225,7 @@ indea/lrc/x fa9d71e..9c780e3 100644
     Account* a = cm->account() ? cm->account() : AvailableAccountModel::instance().currentDefaultAccount();
  
     return updateByAccount(action, a) && (
-@@ -901,7 +912,7 @@ bool UserActionModelPrivate::updateAction(UserActionModel::Action action)
+@@ -901,7 +912,7 @@
  
                       const auto cm = qvariant_cast<ContactMethod*>(idx.data(static_cast<int>(Ring::Role::Object)));
  
@@ -1277,7 +1234,7 @@ indea/lrc/x fa9d71e..9c780e3 100644
  
                       break;
                    }
-@@ -911,12 +922,27 @@ bool UserActionModelPrivate::updateAction(UserActionModel::Action action)
+@@ -911,12 +922,27 @@
  
                       ret &= updateByCall( action, c );
  
@@ -1305,7 +1262,7 @@ indea/lrc/x fa9d71e..9c780e3 100644
                    case Ring::ObjectType::COUNT__        :
                       break;
                 }
-@@ -1004,6 +1030,7 @@ bool UserActionModel::execute(const UserActionModel::Action action) const
+@@ -1004,6 +1030,7 @@
              break;
           case Ring::ObjectType::Media          : //TODO
           case Ring::ObjectType::Certificate    : //TODO
