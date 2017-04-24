@@ -1,8 +1,130 @@
+diffa/lrc/src/securityevaluationmodel.cpp b/src/securityevaluationmodel.cpp
+indea/lrc/x 06aa33d..54998cc 100644
+--- a/lrc/src/securityevaluationmodel.cpp
++++ a/lrc/src/securityevaluationmodel.cpp
+@@ -43,8 +43,8 @@ const QString SecurityEvaluationModelPrivate::messages[enum_class_size<SecurityE
+    /*VERIFY_ANSWER_ENABLED       */QObject::tr("The \"verify answer certificate\" option is disabled, this leave you vulnerable to man in the middle attack"),
+    /*REQUIRE_CERTIFICATE_ENABLED */QObject::tr("None of your certificate provide a private key, this is required. Please select a private key"
+                                        " or use a certificate with one built-in"),
+-   /*NOT_MISSING_CERTIFICATE     */QObject::tr("No certificate authority is provided, it won't be possible to validate if the answer certificates are valid. Some account may also not work."),
+-   /*NOT_MISSING_CERTIFICATE     */QObject::tr("No certificate has been provided. This is, for now, unsupported by Ring"),
++   /* NOT_MISSING_CERTIFICATE    */QObject::tr("No certificate has been provided. This is, for now, unsupported by Ring"),
++   /* NOT_MISSING_AUTHORITY      */QObject::tr("No certificate authority is provided, it won't be possible to validate if the answer certificates are valid. Some account may also not work."),
+ };
+ 
+ static const QString s1 = QObject::tr("Your certificate is expired, please contact your system administrator.");
+@@ -60,7 +60,7 @@ SecurityEvaluationModelPrivate::maximumSecurityLevel = {{
+    /* VERIFY_ANSWER_ENABLED            */ SecurityEvaluationModel::SecurityLevel::MEDIUM      ,
+    /* REQUIRE_CERTIFICATE_ENABLED      */ SecurityEvaluationModel::SecurityLevel::WEAK        ,
+    /* NOT_MISSING_CERTIFICATE          */ SecurityEvaluationModel::SecurityLevel::WEAK        ,
+-   /* NOT_MISSING_AUTHORITY            */ SecurityEvaluationModel::SecurityLevel::NONE        , //This won't work
++   /* NOT_MISSING_AUTHORITY            */ SecurityEvaluationModel::SecurityLevel::ACCEPTABLE  ,
+ }};
+ 
+ const TypedStateMachine< SecurityEvaluationModel::Severity , SecurityEvaluationModel::AccountSecurityChecks >
+@@ -73,7 +73,7 @@ SecurityEvaluationModelPrivate::flawSeverity = {{
+    /* VERIFY_ANSWER_ENABLED             */ SecurityEvaluationModel::Severity::ISSUE           ,
+    /* REQUIRE_CERTIFICATE_ENABLED       */ SecurityEvaluationModel::Severity::ISSUE           ,
+    /* NOT_MISSING_CERTIFICATE           */ SecurityEvaluationModel::Severity::WARNING         ,
+-   /* NOT_MISSING_AUTHORITY             */ SecurityEvaluationModel::Severity::ERROR           ,
++   /* NOT_MISSING_AUTHORITY             */ SecurityEvaluationModel::Severity::INFORMATION     ,
+ }};
+ 
+ const TypedStateMachine< SecurityEvaluationModel::SecurityLevel , Certificate::Checks > SecurityEvaluationModelPrivate::maximumCertificateSecurityLevel = {{
 diffa/lrc/CMakeLists.txt b/CMakeLists.txt
-indea/lrc/x a57fe87..b0beaf4 100644
+indea/lrc/x a57fe87..5cd6572 100644
 --- a/lrc/CMakeLists.txt
-+++ b/lrc/CMakeLists.txt
-@@ -176,18 +176,12 @@
++++ a/lrc/CMakeLists.txt
+@@ -184,7 +184,7 @@ IF(${ENABLE_LIBWRAP} MATCHES true)
+    ENDIF()
+ ENDIF()
+ 
+-IF (${RING_FOUND} MATCHES "true")
++IF (DEFINED ring_INCLUDE_DIRS)
+    INCLUDE_DIRECTORIES(${ring_INCLUDE_DIRS})
+ ENDIF()
+ 
+@@ -762,7 +762,7 @@ SET(LIB_INSTALL_DIR ${SANE_LIBRARY_PATH})
+ SET(libringclient_CONFIG_PATH "${CMAKE_CURRENT_BINARY_DIR}/LibRingClientConfig.cmake")
+ 
+ CONFIGURE_PACKAGE_CONFIG_FILE(
+-   "${CMAKE_SOURCE_DIR}/cmake/LibRingClientConfig.cmake.in" ${libringclient_CONFIG_PATH}
++   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/LibRingClientConfig.cmake.in" ${libringclient_CONFIG_PATH}
+    INSTALL_DESTINATION ${LIB_INSTALL_DIR}/libringclient/cmake
+    PATH_VARS INCLUDE_INSTALL_DIR
+ )
+diffa/lrc/cmake/FindRing.cmake b/cmake/FindRing.cmake
+indea/lrc/x 0811738..c7df19f 100644
+--- a/lrc/cmake/FindRing.cmake
++++ a/lrc/cmake/FindRing.cmake
+@@ -10,6 +10,9 @@ ELSEIF(EXISTS ${RING_INCLUDE_DIR}/dring.h)
+    SET(ring_INCLUDE_DIRS ${RING_INCLUDE_DIR})
+ ELSEIF(EXISTS ${RING_BUILD_DIR}/dring/dring.h)
+    SET(ring_INCLUDE_DIRS ${RING_BUILD_DIR}/dring)
++ELSEIF(DEFINED RING_XML_INTERFACES_DIR AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
++   MESSAGE("Daemon header not found, DBus mode only")
++   SET(RING_FOUND true)
+ ELSE()
+    MESSAGE(STATUS "Daemon header not found!
+    Add -DRING_BUILD_DIR or -DCMAKE_INSTALL_PREFIX")
+@@ -26,7 +29,7 @@ FIND_LIBRARY(ring_BIN NAMES ring
+ )
+ 
+ # Try a static version too
+-IF(${ring_BIN} MATCHES "")
++IF(${ring_BIN} MATCHES "" AND NOT DEFINED RING_XML_INTERFACES_DIR)
+    SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a;.lib")
+ 
+    FIND_LIBRARY(ring_BIN NAMES ring
+@@ -35,9 +38,9 @@ IF(${ring_BIN} MATCHES "")
+       PATHS ${CMAKE_INSTALL_PREFIX}/libexec
+    )
+ 
+-IF(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+-   ADD_DEFINITIONS(-fPIC)
+-ENDIF()
++   IF(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
++      ADD_DEFINITIONS(-fPIC)
++   ENDIF()
+ 
+ ENDIF()
+ 
+diffa/lrc/cmake/LibRingClientConfig.cmake.in b/cmake/LibRingClientConfig.cmake.in
+indea/lrc/x 1cc77b8..6361a3c 100644
+--- a/lrc/cmake/LibRingClientConfig.cmake.in
++++ a/lrc/cmake/LibRingClientConfig.cmake.in
+@@ -45,3 +45,26 @@ FIND_PACKAGE_HANDLE_STANDARD_ARGS(LIB_RING_CLIENT
+     VERSION_VAR
+         @GENERIC_LIB_VERSION@
+ )
++
++# This isn't pretty, and the blame is on me. I was clueless when I first
++# wrote this file and got something wrong. `LIB_RING_CLIENT` doesn't match the
++# project name in `ring-lrc/CMakeLists.txt`. This causes problems when the
++# ring-lrc Git repository is used in CMake external projects. Given
++# changing it above would break the API, it instead add a second target
++# with the proper name.
++
++SET(ringclient_LIBRARY ${LIB_RING_CLIENT_LIBRARY})
++SET(ringclient_LIBRARY_DYNAMIC ${LIB_RING_CLIENT_LIBRARY_DYNAMIC})
++SET(ringclient_LIBRARY_STATIC ${LIB_RING_CLIENT_LIBRARY_STATIC})
++SET(ringclient_INCLUDE_DIR ${LIB_RING_CLIENT_INCLUDE_DIR})
++SET(ringclient_INCLUDES ${LIB_RING_CLIENT_INCLUDE_DIR}) #compat
++
++FIND_PACKAGE_HANDLE_STANDARD_ARGS(ringclient
++    FOUND_VAR
++        ringclient_FOUND
++    REQUIRED_VARS
++        ringclient_LIBRARY
++        ringclient_INCLUDE_DIR
++    VERSION_VAR
++        1.0.0
++)
+diffa/lrc/CMakeLists.txt b/CMakeLists.txt
+indea/lrc/x 5cd6572..b0beaf4 100644
+--- a/lrc/CMakeLists.txt
++++ a/lrc/CMakeLists.txt
+@@ -176,18 +176,12 @@ IF(${ENABLE_LIBWRAP} MATCHES true)
     SET(ENABLE_QT5 true) # Use Qt5
     MESSAGE(STATUS "Compiling with qtwrapper enabled, Qt5 enabled.")
  
@@ -14,14 +136,14 @@ indea/lrc/x a57fe87..b0beaf4 100644
     ENDIF()
  ENDIF()
  
--IF (${RING_FOUND} MATCHES "true")
+-IF (DEFINED ring_INCLUDE_DIRS)
 -   INCLUDE_DIRECTORIES(${ring_INCLUDE_DIRS})
 -ENDIF()
 -
  IF(NOT (${ENABLE_VIDEO} MATCHES false))
     MESSAGE(STATUS "VIDEO enabled")
     SET(ENABLE_VIDEO 1 CACHE BOOLEAN "Enable video")
-@@ -199,9 +193,6 @@
+@@ -199,9 +193,6 @@ ENDIF(NOT (${ENABLE_VIDEO} MATCHES false))
  SET(GENERIC_LIB_VERSION "1.0.0")
  
  INCLUDE_DIRECTORIES(SYSTEM ${QT_INCLUDES} )
@@ -31,7 +153,7 @@ indea/lrc/x a57fe87..b0beaf4 100644
  
  # Build dbus interfaces
  IF(DEFINED RING_XML_INTERFACES_DIR)
-@@ -622,9 +613,20 @@
+@@ -622,9 +613,20 @@ ENDIF()
  
  QT5_WRAP_CPP(LIB_HEADER_MOC ${libringclient_PRIVATE_HDRS})
  
@@ -53,7 +175,7 @@ indea/lrc/x a57fe87..b0beaf4 100644
  IF(NOT ${ENABLE_STATIC} MATCHES false)
     ADD_LIBRARY( ringclient_static  STATIC ${libringclient_LIB_SRCS} ${LIB_HEADER_MOC} )
     QT5_USE_MODULES(ringclient_static Core)
-@@ -653,11 +655,31 @@
+@@ -653,11 +655,31 @@ ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
  ENDIF()
  
  
@@ -85,7 +207,7 @@ indea/lrc/x a57fe87..b0beaf4 100644
  IF(${ENABLE_LIBWRAP} MATCHES true)
     IF(NOT ${ring_BIN} MATCHES "ring_BIN-NOTFOUND")
        TARGET_LINK_LIBRARIES( ringclient
-@@ -676,6 +698,18 @@
+@@ -676,6 +698,18 @@ IF(${ENABLE_LIBWRAP} MATCHES true)
           qtwrapper
           ${ring_BIN}
        )
@@ -104,7 +226,7 @@ indea/lrc/x a57fe87..b0beaf4 100644
     ENDIF()
  ELSE()
     TARGET_LINK_LIBRARIES( ringclient
-@@ -695,14 +729,29 @@
+@@ -695,14 +729,29 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     ENDIF()
  ENDIF()
  
@@ -136,7 +258,7 @@ indea/lrc/x a57fe87..b0beaf4 100644
    COMPONENT Devel
  )
  
-@@ -731,11 +780,6 @@
+@@ -731,11 +780,6 @@ INSTALL( FILES ${libringclient_interface_LIB_HDRS}
    COMPONENT Devel
  )
  
@@ -148,7 +270,7 @@ indea/lrc/x a57fe87..b0beaf4 100644
  INSTALL( TARGETS ringclient
    ARCHIVE DESTINATION ${SANE_LIBRARY_PATH}
    RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
-@@ -751,18 +795,12 @@
+@@ -751,14 +795,8 @@ IF(NOT ${ENABLE_STATIC} MATCHES false)
     )
  ENDIF()
  
@@ -163,12 +285,7 @@ indea/lrc/x a57fe87..b0beaf4 100644
  SET(libringclient_CONFIG_PATH "${CMAKE_CURRENT_BINARY_DIR}/LibRingClientConfig.cmake")
  
  CONFIGURE_PACKAGE_CONFIG_FILE(
--   "${CMAKE_SOURCE_DIR}/cmake/LibRingClientConfig.cmake.in" ${libringclient_CONFIG_PATH}
-+   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/LibRingClientConfig.cmake.in" ${libringclient_CONFIG_PATH}
-    INSTALL_DESTINATION ${LIB_INSTALL_DIR}/libringclient/cmake
-    PATH_VARS INCLUDE_INSTALL_DIR
- )
-@@ -772,12 +810,6 @@
+@@ -772,12 +810,6 @@ INSTALL( FILES ${libringclient_CONFIG_PATH}
    COMPONENT Devel
  )
  
@@ -181,69 +298,14 @@ indea/lrc/x a57fe87..b0beaf4 100644
  # translations
  IF( Qt5LinguistTools_FOUND )
     # translation template file
---- a/lrc/cmake/FindRing.cmake
-+++ b/lrc/cmake/FindRing.cmake
-@@ -10,6 +10,9 @@
-    SET(ring_INCLUDE_DIRS ${RING_INCLUDE_DIR})
- ELSEIF(EXISTS ${RING_BUILD_DIR}/dring/dring.h)
-    SET(ring_INCLUDE_DIRS ${RING_BUILD_DIR}/dring)
-+ELSEIF(DEFINED RING_XML_INTERFACES_DIR AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-+   MESSAGE(STATUS "Daemon header not found, DBus mode only")
-+   SET(RING_FOUND true)
- ELSE()
-    MESSAGE(STATUS "Daemon header not found!
-    Add -DRING_BUILD_DIR or -DCMAKE_INSTALL_PREFIX")
-@@ -26,7 +29,7 @@
- )
- 
- # Try a static version too
--IF(${ring_BIN} MATCHES "")
-+IF(${ring_BIN} MATCHES "" AND NOT DEFINED RING_XML_INTERFACES_DIR)
-    SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a;.lib")
- 
-    FIND_LIBRARY(ring_BIN NAMES ring
-@@ -35,9 +38,9 @@
-       PATHS ${CMAKE_INSTALL_PREFIX}/libexec
-    )
- 
--IF(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
--   ADD_DEFINITIONS(-fPIC)
--ENDIF()
-+   IF(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-+      ADD_DEFINITIONS(-fPIC)
-+   ENDIF()
- 
- ENDIF()
- 
+diffa/lrc/cmake/LibRingClientConfig.cmake.in b/cmake/LibRingClientConfig.cmake.in
+indea/lrc/x 6361a3c..bfd76aa 100644
 --- a/lrc/cmake/LibRingClientConfig.cmake.in
-+++ b/lrc/cmake/LibRingClientConfig.cmake.in
-@@ -45,3 +45,44 @@
++++ a/lrc/cmake/LibRingClientConfig.cmake.in
+@@ -68,3 +68,21 @@ FIND_PACKAGE_HANDLE_STANDARD_ARGS(ringclient
      VERSION_VAR
-         @GENERIC_LIB_VERSION@
+         1.0.0
  )
-+
-+# This isn't pretty, and the blame is on me. I was clueless when I first
-+# wrote this file and got something wrong. `LIB_RING_CLIENT` doesn't match the
-+# project name in `ring-lrc/CMakeLists.txt`. This causes problems when the
-+# ring-lrc Git repository is used in CMake external projects. Given
-+# changing it above would break the API, it instead add a second target
-+# with the proper name.
-+
-+SET(ringclient_LIBRARY ${LIB_RING_CLIENT_LIBRARY})
-+SET(ringclient_LIBRARY_DYNAMIC ${LIB_RING_CLIENT_LIBRARY_DYNAMIC})
-+SET(ringclient_LIBRARY_STATIC ${LIB_RING_CLIENT_LIBRARY_STATIC})
-+SET(ringclient_INCLUDE_DIR ${LIB_RING_CLIENT_INCLUDE_DIR})
-+SET(ringclient_INCLUDES ${LIB_RING_CLIENT_INCLUDE_DIR}) #compat
-+
-+FIND_PACKAGE_HANDLE_STANDARD_ARGS(ringclient
-+    FOUND_VAR
-+        ringclient_FOUND
-+    REQUIRED_VARS
-+        ringclient_LIBRARY
-+        ringclient_INCLUDE_DIR
-+    VERSION_VAR
-+        1.0.0
-+)
 +
 +SET(ringclient_static_LIBRARY ${LIB_RING_CLIENT_LIBRARY})
 +SET(ringclient_static_INCLUDE_DIR ${LIB_RING_CLIENT_INCLUDE_DIR})
@@ -262,53 +324,24 @@ indea/lrc/x a57fe87..b0beaf4 100644
 +if(NOT TARGET ringclient AND NOT ringclient_BINARY_DIR)
 +  include("@SANE_LIBRARY_PATH@/cmake/LibRingClient/LibRingClientTargets.cmake")
 +endif()
---- a/lrc/src/account.h
-+++ b/lrc/src/account.h
-@@ -352,7 +352,7 @@
-        *Perform an action
-        * @return If the state changed
-        */
--      bool performAction(Account::EditAction action);
-+      Q_INVOKABLE bool performAction(Account::EditAction action);
-       Account::EditState editState() const;
- 
-       //Getters
-@@ -460,10 +460,10 @@
-       uint    internalId                   () const;
-       QString lastSipRegistrationStatus    () const;
- 
--      bool    exportOnRing      (const QString& password) const;
--      bool    registerName      (const QString& password, const QString& name) const;
--      bool    lookupName        (const QString& name                         ) const;
--      bool    lookupAddress     (const QString& address                      ) const;
-+      Q_INVOKABLE bool exportOnRing (const QString& password) const;
-+      Q_INVOKABLE bool registerName (const QString& password, const QString& name) const;
-+      Q_INVOKABLE bool lookupName   (const QString& name                         ) const;
-+      Q_INVOKABLE bool lookupAddress(const QString& address                      ) const;
- 
-       bool   isUsedForOutgogingCall () const;
-       uint   totalCallCount         () const;
-@@ -575,6 +575,7 @@
- 
-       QSharedPointer<AccountPrivate> d_ptr;
-       Q_DECLARE_PRIVATE(Account)
-+      Q_DISABLE_COPY(Account)
- 
-    Q_SIGNALS:
-       ///The account state (Invalid,Trying,Registered) changed
-@@ -603,8 +604,8 @@
-       /// contact request accepted
-       void contactRequestAccepted(const ContactRequest*);
- };
--// Q_DISABLE_COPY(Account)
- Q_DECLARE_METATYPE(Account*)
-+Q_DECLARE_METATYPE(const Account*)
- Q_DECLARE_METATYPE(Account::RegistrationState)
- Q_DECLARE_METATYPE(Account::EditAction)
- Q_DECLARE_METATYPE(Account::Protocol)
+diffa/lrc/cmake/FindRing.cmake b/cmake/FindRing.cmake
+indea/lrc/x c7df19f..7adeab0 100644
+--- a/lrc/cmake/FindRing.cmake
++++ a/lrc/cmake/FindRing.cmake
+@@ -11,7 +11,7 @@ ELSEIF(EXISTS ${RING_INCLUDE_DIR}/dring.h)
+ ELSEIF(EXISTS ${RING_BUILD_DIR}/dring/dring.h)
+    SET(ring_INCLUDE_DIRS ${RING_BUILD_DIR}/dring)
+ ELSEIF(DEFINED RING_XML_INTERFACES_DIR AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+-   MESSAGE("Daemon header not found, DBus mode only")
++   MESSAGE(STATUS "Daemon header not found, DBus mode only")
+    SET(RING_FOUND true)
+ ELSE()
+    MESSAGE(STATUS "Daemon header not found!
+diffa/lrc/src/callmodel.cpp b/src/callmodel.cpp
+indea/lrc/x 30cc1fa..79c406f 100644
 --- a/lrc/src/callmodel.cpp
-+++ b/lrc/src/callmodel.cpp
-@@ -112,6 +112,7 @@
++++ a/lrc/src/callmodel.cpp
+@@ -112,6 +112,7 @@ class CallModelPrivate final : public QObject
        void slotNewRecordingAvail  ( const QString& callId    , const QString& filePath);
        void slotCallChanged        (                                                   );
        void slotStateChanged       ( Call::State newState, Call::State previousState   );
@@ -316,7 +349,7 @@ indea/lrc/x a57fe87..b0beaf4 100644
        void slotDTMFPlayed         ( const QString& str                                );
        void slotRecordStateChanged ( const QString& callId    , bool state             );
        void slotAudioMuted         ( const QString& callId    , bool state             );
-@@ -468,6 +469,7 @@
+@@ -468,6 +469,7 @@ Call* CallModelPrivate::addCall2(Call* call, Call* parentCall)
        emit q_ptr->dataChanged(idx, idx);
        connect(call, &Call::changed, this, &CallModelPrivate::slotCallChanged);
        connect(call,&Call::stateChanged,this,&CallModelPrivate::slotStateChanged);
@@ -324,7 +357,7 @@ indea/lrc/x a57fe87..b0beaf4 100644
        connect(call,SIGNAL(dtmfPlayed(QString)),this,SLOT(slotDTMFPlayed(QString)));
        connect(call,&Call::videoStarted,[this,call](Video::Renderer* r) {
           emit q_ptr->rendererAdded(call, r);
-@@ -1363,6 +1365,13 @@
+@@ -1363,6 +1365,13 @@ void CallModelPrivate::slotStateChanged(Call::State newState, Call::State previo
        emit q_ptr->callStateChanged(call, previousState);
  }
  
@@ -338,9 +371,11 @@ indea/lrc/x a57fe87..b0beaf4 100644
  ///Update model if the data change
  void CallModelPrivate::slotCallChanged()
  {
+diffa/lrc/src/callmodel.h b/src/callmodel.h
+indea/lrc/x 07e6b08..38ff704 100644
 --- a/lrc/src/callmodel.h
-+++ b/lrc/src/callmodel.h
-@@ -157,6 +157,8 @@
++++ a/lrc/src/callmodel.h
+@@ -157,6 +157,8 @@ Q_OBJECT
     void rendererRemoved         ( Call* call, Video::Renderer* renderer   );
     ///Notify when a media is added
     void mediaAdded              ( Call* call, Media::Media* media         );
@@ -349,8 +384,262 @@ indea/lrc/x a57fe87..b0beaf4 100644
     ///Notify when a media state change
     void mediaStateChanged( Call* call, Media::Media* media, const Media::Media::State s, const Media::Media::State m);
  };
+diffa/lrc/src/phonedirectorymodel.cpp b/src/phonedirectorymodel.cpp
+indea/lrc/x 019cfc9..25ea6b5 100644
+--- a/lrc/src/phonedirectorymodel.cpp
++++ a/lrc/src/phonedirectorymodel.cpp
+@@ -636,6 +636,29 @@ ContactMethod* PhoneDirectoryModel::fromHash(const QString& hash)
+    return nullptr;
+ }
+ 
++
++/** Filter the existing CMs for an URI without flooding the model with merge
++ * candidates.
++ *
++ * This should help reduce the number of accidental duplicates once its
++ * usage spread over the code. It also reduce the boilerplate code.
++ **/
++ContactMethod* PhoneDirectoryModel::getExistingNumberIf(const URI& uri, const std::function<bool(const ContactMethod*)>& pred) const
++{
++   // Prevent the most obvious duplicates
++   const URI strippedUri(uri);
++
++   //See if the number is already loaded
++   const NumberWrapper* w = d_ptr->m_hDirectory[strippedUri];
++
++   if (!w)
++      return nullptr;
++
++   const auto iter = std::find_if(std::begin(w->numbers), std::end(w->numbers), pred);
++
++   return (iter != std::end(w->numbers)) ? *iter : nullptr;
++}
++
+ QVector<ContactMethod*> PhoneDirectoryModel::getNumbersByPopularity() const
+ {
+    return d_ptr->m_lPopularityIndex;
+diffa/lrc/src/phonedirectorymodel.h b/src/phonedirectorymodel.h
+indea/lrc/x 79f74a5..f31ddef 100644
+--- a/lrc/src/phonedirectorymodel.h
++++ a/lrc/src/phonedirectorymodel.h
+@@ -19,6 +19,9 @@
+ 
+ #include "typedefs.h"
+ 
++// STD
++#include <functional>
++
+ //Qt
+ #include <QtCore/QString>
+ #include <QtCore/QAbstractTableModel>
+@@ -83,6 +86,8 @@ class LIB_EXPORT PhoneDirectoryModel : public QAbstractTableModel {
+    Q_INVOKABLE ContactMethod* fromHash (const QString& hash);
+    Q_INVOKABLE ContactMethod* fromTemporary(const TemporaryContactMethod* number);
+ 
++   ContactMethod* getExistingNumberIf(const URI& uri, const std::function<bool(const ContactMethod*)>& pred) const;
++
+    //Getter
+    int count() const;
+    bool callWithAccount() const;
+diffa/lrc/src/useractionmodel.cpp b/src/useractionmodel.cpp
+indea/lrc/x fa9d71e..9c780e3 100644
+--- a/lrc/src/useractionmodel.cpp
++++ a/lrc/src/useractionmodel.cpp
+@@ -29,6 +29,7 @@
+ #include "accountmodel.h"
+ #include "contactmethod.h"
+ #include "availableaccountmodel.h"
++#include "phonedirectorymodel.h"
+ #include "globalinstances.h"
+ #include "interfaces/pixmapmanipulatori.h"
+ #include "interfaces/actionextenderi.h"
+@@ -157,7 +158,7 @@ const Matrix2D< UAM::Action, Call::State, bool > UserActionModelPrivate::availab
+  { UAMA::EMAIL_CONTACT     , {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
+  { UAMA::COPY_CONTACT      , {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
+  { UAMA::BOOKMARK          , {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
+- { UAMA::VIEW_CHAT_HISTORY , {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
++ { UAMA::VIEW_CHAT_HISTORY , {{co, { false, true  , true , true , true , true , true , true , true , true , true , true , false, false, true , true , true  }}}},
+  { UAMA::ADD_CONTACT_METHOD, {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
+  { UAMA::CALL_CONTACT      , {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
+  { UAMA::EDIT_CONTACT      , {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
+@@ -358,7 +359,7 @@ const Matrix1D< UAMA, FlagPack<UAM::Context>> UserActionModelPrivate::actionCont
+    { UAMA::EMAIL_CONTACT     , UAM::Context::CONTACT     },
+    { UAMA::COPY_CONTACT      , UAM::Context::MANAGEMENT  },
+    { UAMA::BOOKMARK          , UAM::Context::MANAGEMENT  },
+-   { UAMA::VIEW_CHAT_HISTORY , UAM::Context::MANAGEMENT  },
++   { UAMA::VIEW_CHAT_HISTORY , UAM::Context::RECOMMENDED },
+    { UAMA::ADD_CONTACT_METHOD, UAM::Context::MANAGEMENT  },
+    { UAMA::CALL_CONTACT      , UAM::Context::CONTACT     },
+    { UAMA::EDIT_CONTACT      , UAM::Context::CONTACT     },
+@@ -410,7 +411,7 @@ const Matrix2D< UAMA, Ring::ObjectType , bool  > UserActionModelPrivate::availab
+    { UAMA::EMAIL_CONTACT     , {{ true ,    true ,     true ,  false,    true ,        false     }}},
+    { UAMA::COPY_CONTACT      , {{ true ,    true ,     true ,  false,    true ,        false     }}},
+    { UAMA::BOOKMARK          , {{ true ,    true ,     true ,  false,    true ,        false     }}},
+-   { UAMA::VIEW_CHAT_HISTORY , {{ true ,    true ,     true ,  false,    true ,        false     }}},
++   { UAMA::VIEW_CHAT_HISTORY , {{ true ,    true ,     true ,  true ,    true ,        true      }}},
+    { UAMA::ADD_CONTACT_METHOD, {{ true ,    true ,     true ,  false,    true ,        false     }}},
+    { UAMA::CALL_CONTACT      , {{ true ,    true ,     true ,  false,    true ,        false     }}},
+    { UAMA::EDIT_CONTACT      , {{ true ,    true ,     true ,  false,    true ,        false     }}},
+@@ -478,27 +479,33 @@ const Matrix1D< UAM::Action, bool(*)(const ContactMethod*)> UserActionModelPriva
+    { UAMA::JOIN              , nullptr                                         },
+    { UAMA::ADD_NEW           , nullptr                                         },
+    { UAMA::TOGGLE_VIDEO      , nullptr                                         },
+-   { UAMA::ADD_CONTACT       , CM_CB { return (!cm->contact())
++   { UAMA::ADD_CONTACT       , CM_CB { return (!cm) || (!cm->contact())
+       || cm->contact()->isPlaceHolder();
+    }},
+-   { UAMA::ADD_TO_CONTACT    , CM_CB { return !cm->contact();                 }},
+-   { UAMA::DELETE_CONTACT    , CM_CB { return cm->contact() &&
++   { UAMA::ADD_TO_CONTACT    , CM_CB { return (!cm) || !cm->contact();        }},
++   { UAMA::DELETE_CONTACT    , CM_CB { return cm && cm->contact() &&
+       cm->contact()->collection() &&
+       cm->contact()->collection()->supportedFeatures() &
+          CollectionInterface::SupportedFeatures::REMOVE;
+    }},
+-   { UAMA::EMAIL_CONTACT     , CM_CB { return cm->contact() &&
++   { UAMA::EMAIL_CONTACT     , CM_CB { return cm && cm->contact() &&
+       !cm->contact()->preferredEmail().isEmpty();
+    }},
+-   { UAMA::COPY_CONTACT      , CM_CB { return cm->contact();                  }},
++   { UAMA::COPY_CONTACT      , CM_CB { return cm && cm->contact();            }},
+    { UAMA::BOOKMARK          , nullptr                                         },
+-   { UAMA::VIEW_CHAT_HISTORY , CM_CB { return cm->textRecording()
+-       && !cm->textRecording()->isEmpty();
++   { UAMA::VIEW_CHAT_HISTORY , CM_CB {
++       return cm && ((
++          cm->textRecording()
++          && !cm->textRecording()->isEmpty()
++       ) || (
++           cm->protocolHint() == URI::ProtocolHint::RING_USERNAME ||
++           cm->protocolHint() == URI::ProtocolHint::RING
++       ));
+    }},
+-   { UAMA::ADD_CONTACT_METHOD, CM_CB { return cm->contact();                  }},
+-   { UAMA::CALL_CONTACT      , CM_CB { return cm->isReachable();              }},
+-   { UAMA::EDIT_CONTACT      , CM_CB { return cm->contact();                  }},
+-   { UAMA::REMOVE_HISTORY    , CM_CB { return cm->callCount();                }},
++   { UAMA::ADD_CONTACT_METHOD, CM_CB { return cm && cm->contact();            }},
++   { UAMA::CALL_CONTACT      , CM_CB { return (!cm) || cm->isReachable();     }},
++   { UAMA::EDIT_CONTACT      , CM_CB { return cm && cm->contact();            }},
++   { UAMA::REMOVE_HISTORY    , CM_CB { return cm && cm->callCount();          }},
+ };
+ #undef CM_CB
+ 
+@@ -523,7 +530,7 @@ m_pCall(nullptr), m_pActiveModel(nullptr), m_fContext(c)
+       { UAMA::EMAIL_CONTACT     , QObject::tr("Email contact"          )},
+       { UAMA::COPY_CONTACT      , QObject::tr("Copy contact"           )},
+       { UAMA::BOOKMARK          , QObject::tr("Bookmark"               )},
+-      { UAMA::VIEW_CHAT_HISTORY , QObject::tr("View chat history"      )},
++      { UAMA::VIEW_CHAT_HISTORY , QObject::tr("Open chat"              )},
+       { UAMA::ADD_CONTACT_METHOD, QObject::tr("Add phone number"       )},
+       { UAMA::CALL_CONTACT      , QObject::tr("Call again"             )},
+       { UAMA::EDIT_CONTACT      , QObject::tr("Edit contact details"   )},
+@@ -590,6 +597,7 @@ UserActionModel::UserActionModel(QAbstractItemModel* parent, const FlagPack<User
+       setSelectionModel(callmodel->selectionModel());
+       connect(callmodel, &CallModel::callStateChanged , d_ptr.data(), &UserActionModelPrivate::updateActions);
+       connect(callmodel, &CallModel::mediaStateChanged, d_ptr.data(), &UserActionModelPrivate::updateActions);
++      connect(callmodel, &CallModel::dialNumberChanged, d_ptr.data(), &UserActionModelPrivate::updateActions);
+    }
+    //TODO add other relevant models here Categorized*, RecentModel, etc
+ 
+@@ -829,8 +837,11 @@ bool UserActionModelPrivate::updateByAccount(UserActionModel::Action action, con
+ 
+ bool UserActionModelPrivate::updateByContactMethod(UserActionModel::Action action, const ContactMethod* cm)
+ {
++   // Some actions have a conditional CM
+    if (!cm)
+-      return false;
++      return cmActionAvailability[action] ?
++         cmActionAvailability[action](nullptr) : true;
++
+    Account* a = cm->account() ? cm->account() : AvailableAccountModel::instance().currentDefaultAccount();
+ 
+    return updateByAccount(action, a) && (
+@@ -901,7 +912,7 @@ bool UserActionModelPrivate::updateAction(UserActionModel::Action action)
+ 
+                      const auto cm = qvariant_cast<ContactMethod*>(idx.data(static_cast<int>(Ring::Role::Object)));
+ 
+-                     ret &= updateByContactMethod( action, cm );
++                     ret &= cm ? updateByContactMethod( action, cm ) : false;
+ 
+                      break;
+                   }
+@@ -911,12 +922,27 @@ bool UserActionModelPrivate::updateAction(UserActionModel::Action action)
+ 
+                      ret &= updateByCall( action, c );
+ 
++                     // Dialing (search field) calls have a new URI with every
++                     // keystroke. Check is such URI match an existing one. This
++                     // changes the availability of some actions. For example,
++                     // the offline chat only works for Ring CM *or* SIP CM with
++                     // an existing chat history.
++                     if (c->state() == Call::State::DIALING) {
++                        ret &= updateByContactMethod(
++                          action, PhoneDirectoryModel::instance().getExistingNumberIf(
++                             c->peerContactMethod()->uri(),
++                             [](const ContactMethod* cm) -> bool { return cm->account();}
++                          )
++                        );
++                     }
++
+                      updateCheckMask( state ,action, c ); //TODO abstract this out
+ 
+                      break;
+                   }
+                   case Ring::ObjectType::Media          : //TODO
+                   case Ring::ObjectType::Certificate    : //TODO
++                  case Ring::ObjectType::ContactRequest   : //TODO
+                   case Ring::ObjectType::COUNT__        :
+                      break;
+                }
+@@ -1004,6 +1030,7 @@ bool UserActionModel::execute(const UserActionModel::Action action) const
+             break;
+          case Ring::ObjectType::Media          : //TODO
+          case Ring::ObjectType::Certificate    : //TODO
++         case Ring::ObjectType::ContactRequest   : //TODO
+          case Ring::ObjectType::COUNT__        :
+             break;
+       }
+diffa/lrc/src/media/textrecording.cpp b/src/media/textrecording.cpp
+indea/lrc/x 5db44d0..3985cc6 100644
+--- a/lrc/src/media/textrecording.cpp
++++ a/lrc/src/media/textrecording.cpp
+@@ -343,9 +343,17 @@ QAbstractItemModel* Media::TextRecording::unreadInstantTextMessagingModel() cons
+ 
+ bool Media::TextRecording::isEmpty() const
+ {
+-   return !d_ptr->m_lNodes.size();
++   return !size();
+ }
+ 
++int Media::TextRecording::size() const
++{
++    return d_ptr->m_lNodes.size();
++}
++
++// Qt convention compat
++int Media::TextRecording::count() const { return size(); }
++
+ QHash<QByteArray,QByteArray> Media::TextRecordingPrivate::toJsons() const
+ {
+    QHash<QByteArray,QByteArray> ret;
+diffa/lrc/src/media/textrecording.h b/src/media/textrecording.h
+indea/lrc/x 6e46c8f..ddf6e24 100644
+--- a/lrc/src/media/textrecording.h
++++ a/lrc/src/media/textrecording.h
+@@ -89,6 +89,8 @@ class LIB_EXPORT TextRecording : public Recording
+    QAbstractItemModel* instantTextMessagingModel(                         ) const;
+    QAbstractItemModel* unreadInstantTextMessagingModel(                   ) const;
+    bool                isEmpty                  (                         ) const;
++   int                 count                    (                         ) const;
++   int                 size                     (                         ) const;
+    bool                hasMimeType              ( const QString& mimeType ) const;
+    QStringList         mimeTypes                (                         ) const;
+    QVector<ContactMethod*> peers                (                         ) const;
+diffa/lrc/src/media/recordingmodel.cpp b/src/media/recordingmodel.cpp
+indea/lrc/x 99b6ea5..f09644a 100644
 --- a/lrc/src/media/recordingmodel.cpp
-+++ b/lrc/src/media/recordingmodel.cpp
++++ a/lrc/src/media/recordingmodel.cpp
 @@ -1,5 +1,6 @@
  /****************************************************************************
 - *   Copyright (C) 2015-2016 by Savoir-faire Linux                               *
@@ -444,15 +733,14 @@ indea/lrc/x a57fe87..b0beaf4 100644
 +    RecordingNode*                 m_pAudioVideo    {nullptr};
 +    LocalTextRecordingCollection*  m_pTextRecordingCollection;
 +    int                            m_UnreadCount             ;
-+
+ 
+-   //RecordingNode*                 m_pFiles     ; //TODO uncomment when implemented in DRing
 +    // Helpers
 +    void initCategories();
 +    void forwardInsertion(TextRecording* r, ContactMethod* cm, Media::Direction direction);
 +    void updateUnreadCount(const int count);
 +    void emitChangedProxy();
  
--   //RecordingNode*                 m_pFiles     ; //TODO uncomment when implemented in DRing
--
 -   void forwardInsertion(const QMap<QString,QString>& message, ContactMethod* cm, Media::Media::Direction direction);
 -   void updateUnreadCount(const int count);
 +    Q_DISABLE_COPY(RecordingModelPrivate)
@@ -523,7 +811,7 @@ indea/lrc/x a57fe87..b0beaf4 100644
  {
      m_UnreadCount += count;
      if (m_UnreadCount <= 0) {
-@@ -124,20 +136,20 @@
+@@ -124,20 +136,20 @@ void RecordingModelPrivate::updateUnreadCount(const int count)
  
  Media::RecordingModel::~RecordingModel()
  {
@@ -551,7 +839,7 @@ indea/lrc/x a57fe87..b0beaf4 100644
  }
  
  Media::RecordingModel& Media::RecordingModel::instance()
-@@ -148,167 +160,231 @@
+@@ -148,167 +160,231 @@ Media::RecordingModel& Media::RecordingModel::instance()
  
  QHash<int,QByteArray> Media::RecordingModel::roleNames() const
  {
@@ -589,21 +877,20 @@ indea/lrc/x a57fe87..b0beaf4 100644
 -      return QVariant();
 +    if (!index.isValid())
 +        return QVariant();
- 
--   //RecordingNode* modelItem = static_cast<RecordingNode*>(index.internalPointer());
++
 +    const auto modelItem = static_cast<RecordingNode*>(index.internalPointer());
  
--   switch (role) {
--      case Qt::DisplayRole:
--         return "foo";
--   }
+-   //RecordingNode* modelItem = static_cast<RecordingNode*>(index.internalPointer());
 +    if (modelItem->m_Type == RecordingNode::Type::TOP_LEVEL) {
 +        if (index.column() == 0 && role == Qt::DisplayRole)
 +            return modelItem->m_CatName;
 +        if (index.column() == 1 && role == Qt::DisplayRole)
 +            return static_cast<int>(modelItem->m_lChildren.size());
  
--   return QVariant();
+-   switch (role) {
+-      case Qt::DisplayRole:
+-         return "foo";
+-   }
 +        return {};
 +    }
 +
@@ -633,7 +920,8 @@ indea/lrc/x a57fe87..b0beaf4 100644
 +                        return tr("N/A");
 +            }
 +    }
-+
+ 
+-   return QVariant();
 +    return QVariant();
  }
  
@@ -735,26 +1023,74 @@ indea/lrc/x a57fe87..b0beaf4 100644
  {
 -   if (column || (!parent.isValid() && row >= d_ptr->m_lCategories.size()))
 -      return QModelIndex();
+-
+-   const RecordingNode* modelItem = parent.isValid() ? static_cast<const RecordingNode*>(parent.internalPointer()) : d_ptr->m_lCategories[row];
+-
+-   if (row >= modelItem->m_lChildren.size())
+-      return QModelIndex();
+-
+-   return createIndex(row,0,modelItem->m_lChildren[row]);
+-}
+-
+-bool Media::RecordingModel::addItemCallback(const Recording* item)
+-{
+-   Q_UNUSED(item)
+-
+-   //Create some categories
+-   if (d_ptr->m_lCategories.size() == 0) {
+-      d_ptr->m_pText = new RecordingNode(RecordingNode::Type::TOP_LEVEL);
+-      d_ptr->m_pText->m_CatName = tr("Text messages");
+-      d_ptr->m_pText->m_Index = 0;
+-      d_ptr->m_lCategories << d_ptr->m_pText;
+-
+-      d_ptr->m_pAudioVideo = new RecordingNode(RecordingNode::Type::TOP_LEVEL);
+-      d_ptr->m_pAudioVideo->m_CatName = tr("Audio/Video");
+-      d_ptr->m_pAudioVideo->m_Index = 1;
+-      d_ptr->m_lCategories << d_ptr->m_pAudioVideo;
 +    const int count = static_cast<int>(d_ptr->m_lCategories.size());
-+
+ 
+-      /*d_ptr->m_pFiles = new RecordingNode(RecordingNode::Type::TOP_LEVEL);
+-      d_ptr->m_pFiles->m_CatName = tr("Files");
+-      d_ptr->m_pFiles->m_Index = 2;
+-      d_ptr->m_lCategories << m_pFiles;*/
+-   }
 +    if (column > 1 || row < 0 || ((!parent.isValid()) && row >= count))
 +        return {};
  
--   const RecordingNode* modelItem = parent.isValid() ? static_cast<const RecordingNode*>(parent.internalPointer()) : d_ptr->m_lCategories[row];
+-   //Categorize by general media group
+-   RecordingNode* parent = nullptr;
 +    if (!parent.isValid())
 +        return createIndex(row, column, d_ptr->m_lCategories[row]);
  
--   if (row >= modelItem->m_lChildren.size())
--      return QModelIndex();
+-   if (item->type() == Recording::Type::TEXT)
+-      parent = d_ptr->m_pText;
+-   else if (item->type() == Recording::Type::AUDIO_VIDEO)
+-      parent = d_ptr->m_pAudioVideo;
+-   /*else if (item->type() == Recording::Type::FILE))
+-      parent = d_ptr->m_pFiles;*/
 +    const auto modelItem = static_cast<const RecordingNode*>(parent.internalPointer());
  
--   return createIndex(row,0,modelItem->m_lChildren[row]);
+-   //Insert the item
+-   if (parent) {
 +    if (row >= static_cast<int>(modelItem->m_lChildren.size()))
 +        return {};
-+
+ 
+-      beginInsertRows(index(parent->m_Index,0),parent->m_lChildren.size(),parent->m_lChildren.size());
+-
+-      RecordingNode* n = new RecordingNode       ( RecordingNode::Type::SESSION );
+-      n->m_pRec        = const_cast<Recording*>  ( item                         );
+-      n->m_Index       = parent->m_lChildren.size(                              );
+-      parent->m_lChildren << n;
+-
+-      endInsertRows();
 +    return createIndex(row, column, modelItem->m_lChildren[row]);
 +}
-+
+ 
+-      if (item->type() == Recording::Type::TEXT) {
+-         const TextRecording* r = static_cast<const TextRecording*>(item);
+-         connect(r, &TextRecording::messageInserted, d_ptr, &RecordingModelPrivate::forwardInsertion);
+-         connect(r, &TextRecording::unreadCountChange, d_ptr, &RecordingModelPrivate::updateUnreadCount);
+-      }
 +void Media::RecordingModelPrivate::initCategories()
 +{
 +    if (m_lCategories.size())
@@ -772,66 +1108,19 @@ indea/lrc/x a57fe87..b0beaf4 100644
 +    m_pAudioVideo->m_Index   = 1;
 +    m_lCategories.push_back(m_pAudioVideo);
 +    q_ptr->endInsertRows();
- }
- 
- bool Media::RecordingModel::addItemCallback(const Recording* item)
- {
--   Q_UNUSED(item)
-+    Q_UNUSED(item)
- 
--   //Create some categories
--   if (d_ptr->m_lCategories.size() == 0) {
--      d_ptr->m_pText = new RecordingNode(RecordingNode::Type::TOP_LEVEL);
--      d_ptr->m_pText->m_CatName = tr("Text messages");
--      d_ptr->m_pText->m_Index = 0;
--      d_ptr->m_lCategories << d_ptr->m_pText;
--
--      d_ptr->m_pAudioVideo = new RecordingNode(RecordingNode::Type::TOP_LEVEL);
--      d_ptr->m_pAudioVideo->m_CatName = tr("Audio/Video");
--      d_ptr->m_pAudioVideo->m_Index = 1;
--      d_ptr->m_lCategories << d_ptr->m_pAudioVideo;
--
--      /*d_ptr->m_pFiles = new RecordingNode(RecordingNode::Type::TOP_LEVEL);
--      d_ptr->m_pFiles->m_CatName = tr("Files");
--      d_ptr->m_pFiles->m_Index = 2;
--      d_ptr->m_lCategories << m_pFiles;*/
--   }
--
--   //Categorize by general media group
--   RecordingNode* parent = nullptr;
--
--   if (item->type() == Recording::Type::TEXT)
--      parent = d_ptr->m_pText;
--   else if (item->type() == Recording::Type::AUDIO_VIDEO)
--      parent = d_ptr->m_pAudioVideo;
--   /*else if (item->type() == Recording::Type::FILE))
--      parent = d_ptr->m_pFiles;*/
--
--   //Insert the item
--   if (parent) {
--
--      beginInsertRows(index(parent->m_Index,0),parent->m_lChildren.size(),parent->m_lChildren.size());
--
--      RecordingNode* n = new RecordingNode       ( RecordingNode::Type::SESSION );
--      n->m_pRec        = const_cast<Recording*>  ( item                         );
--      n->m_Index       = parent->m_lChildren.size(                              );
--      parent->m_lChildren << n;
--
--      endInsertRows();
--
--      if (item->type() == Recording::Type::TEXT) {
--         const TextRecording* r = static_cast<const TextRecording*>(item);
--         connect(r, &TextRecording::messageInserted, d_ptr, &RecordingModelPrivate::forwardInsertion);
--         connect(r, &TextRecording::unreadCountChange, d_ptr, &RecordingModelPrivate::updateUnreadCount);
--      }
-+    d_ptr->initCategories();
++}
  
 -      return true;
 -   }
++bool Media::RecordingModel::addItemCallback(const Recording* item)
++{
++    Q_UNUSED(item)
++
++    d_ptr->initCategories();
++
 +    //Categorize by general media group
 +    RecordingNode* parent = nullptr;
- 
--   return false;
++
 +    if (item->type() == Recording::Type::TEXT)
 +        parent = d_ptr->m_pText;
 +    else if (item->type() == Recording::Type::AUDIO_VIDEO)
@@ -871,7 +1160,8 @@ indea/lrc/x a57fe87..b0beaf4 100644
 +                );
 +        });
 +    }
-+
+ 
+-   return false;
 +    return true;
  }
  
@@ -884,7 +1174,7 @@ indea/lrc/x a57fe87..b0beaf4 100644
  }
  
  bool Media::RecordingModel::clearAllCollections() const
-@@ -329,35 +405,35 @@
+@@ -329,35 +405,35 @@ void Media::RecordingModel::clear()
  
  void Media::RecordingModel::collectionAddedCallback(CollectionInterface* backend)
  {
@@ -929,7 +1219,7 @@ indea/lrc/x a57fe87..b0beaf4 100644
  }
  
  int  Media::RecordingModel::unreadCount() const
-@@ -368,9 +444,9 @@
+@@ -368,9 +444,9 @@ int  Media::RecordingModel::unreadCount() const
  ///Create or load the recording associated with the ContactMethod cm
  Media::TextRecording* Media::RecordingModel::createTextRecording(const ContactMethod* cm)
  {
@@ -941,8 +1231,10 @@ indea/lrc/x a57fe87..b0beaf4 100644
  }
  
  #include <recordingmodel.moc>
+diffa/lrc/src/media/recordingmodel.h b/src/media/recordingmodel.h
+indea/lrc/x 5e2a846..5494400 100644
 --- a/lrc/src/media/recordingmodel.h
-+++ b/lrc/src/media/recordingmodel.h
++++ a/lrc/src/media/recordingmodel.h
 @@ -27,13 +27,13 @@
  #include "typedefs.h"
  #include "contactmethod.h"
@@ -958,41 +1250,57 @@ indea/lrc/x a57fe87..b0beaf4 100644
  
  /**
   * This model host the Ring recordings. Recording sessions span one or
---- a/lrc/src/media/textrecording.cpp
-+++ b/lrc/src/media/textrecording.cpp
-@@ -343,9 +343,17 @@
+diffa/lrc/src/account.h b/src/account.h
+indea/lrc/x 96f7591..36612b6 100644
+--- a/lrc/src/account.h
++++ a/lrc/src/account.h
+@@ -352,7 +352,7 @@ class LIB_EXPORT Account : public ItemBase {
+        *Perform an action
+        * @return If the state changed
+        */
+-      bool performAction(Account::EditAction action);
++      Q_INVOKABLE bool performAction(Account::EditAction action);
+       Account::EditState editState() const;
  
- bool Media::TextRecording::isEmpty() const
- {
--   return !d_ptr->m_lNodes.size();
-+   return !size();
- }
+       //Getters
+@@ -460,10 +460,10 @@ class LIB_EXPORT Account : public ItemBase {
+       uint    internalId                   () const;
+       QString lastSipRegistrationStatus    () const;
  
-+int Media::TextRecording::size() const
-+{
-+    return d_ptr->m_lNodes.size();
-+}
-+
-+// Qt convention compat
-+int Media::TextRecording::count() const { return size(); }
-+
- QHash<QByteArray,QByteArray> Media::TextRecordingPrivate::toJsons() const
- {
-    QHash<QByteArray,QByteArray> ret;
---- a/lrc/src/media/textrecording.h
-+++ b/lrc/src/media/textrecording.h
-@@ -89,6 +89,8 @@
-    QAbstractItemModel* instantTextMessagingModel(                         ) const;
-    QAbstractItemModel* unreadInstantTextMessagingModel(                   ) const;
-    bool                isEmpty                  (                         ) const;
-+   int                 count                    (                         ) const;
-+   int                 size                     (                         ) const;
-    bool                hasMimeType              ( const QString& mimeType ) const;
-    QStringList         mimeTypes                (                         ) const;
-    QVector<ContactMethod*> peers                (                         ) const;
+-      bool    exportOnRing      (const QString& password) const;
+-      bool    registerName      (const QString& password, const QString& name) const;
+-      bool    lookupName        (const QString& name                         ) const;
+-      bool    lookupAddress     (const QString& address                      ) const;
++      Q_INVOKABLE bool exportOnRing (const QString& password) const;
++      Q_INVOKABLE bool registerName (const QString& password, const QString& name) const;
++      Q_INVOKABLE bool lookupName   (const QString& name                         ) const;
++      Q_INVOKABLE bool lookupAddress(const QString& address                      ) const;
+ 
+       bool   isUsedForOutgogingCall () const;
+       uint   totalCallCount         () const;
+@@ -575,6 +575,7 @@ class LIB_EXPORT Account : public ItemBase {
+ 
+       QSharedPointer<AccountPrivate> d_ptr;
+       Q_DECLARE_PRIVATE(Account)
++      Q_DISABLE_COPY(Account)
+ 
+    Q_SIGNALS:
+       ///The account state (Invalid,Trying,Registered) changed
+@@ -603,8 +604,8 @@ class LIB_EXPORT Account : public ItemBase {
+       /// contact request accepted
+       void contactRequestAccepted(const ContactRequest*);
+ };
+-// Q_DISABLE_COPY(Account)
+ Q_DECLARE_METATYPE(Account*)
++Q_DECLARE_METATYPE(const Account*)
+ Q_DECLARE_METATYPE(Account::RegistrationState)
+ Q_DECLARE_METATYPE(Account::EditAction)
+ Q_DECLARE_METATYPE(Account::Protocol)
+diffa/lrc/src/namedirectory.h b/src/namedirectory.h
+indea/lrc/x 8a43d07..91d6674 100644
 --- a/lrc/src/namedirectory.h
-+++ b/lrc/src/namedirectory.h
-@@ -26,7 +26,6 @@
++++ a/lrc/src/namedirectory.h
+@@ -26,7 +26,6 @@ class Account;
  class LIB_EXPORT NameDirectory : public QObject
  {
      Q_OBJECT
@@ -1000,7 +1308,7 @@ indea/lrc/x a57fe87..b0beaf4 100644
  public:
  
      //Register name status
-@@ -52,9 +51,9 @@
+@@ -52,9 +51,9 @@ class LIB_EXPORT NameDirectory : public QObject
      static NameDirectory& instance();
  
      //Lookup
@@ -1013,7 +1321,7 @@ indea/lrc/x a57fe87..b0beaf4 100644
  
  private:
      //Constructors & Destructors
-@@ -63,6 +62,7 @@
+@@ -63,6 +62,7 @@ class LIB_EXPORT NameDirectory : public QObject
  
      NameDirectoryPrivate* d_ptr;
      Q_DECLARE_PRIVATE(NameDirectory)
@@ -1021,7 +1329,7 @@ indea/lrc/x a57fe87..b0beaf4 100644
  
  Q_SIGNALS:
      ///RegisterName has ended
-@@ -71,3 +71,7 @@
+@@ -71,3 +71,7 @@ class LIB_EXPORT NameDirectory : public QObject
      ///Name or address lookup has completed
      void registeredNameFound(Account* account, NameDirectory::LookupStatus status, const QString& address, const QString& name);
  };
@@ -1029,244 +1337,471 @@ indea/lrc/x a57fe87..b0beaf4 100644
 +Q_DECLARE_METATYPE(NameDirectory*)
 +Q_DECLARE_METATYPE(NameDirectory::RegisterNameStatus)
 +Q_DECLARE_METATYPE(NameDirectory::LookupStatus)
---- a/lrc/src/phonedirectorymodel.cpp
-+++ b/lrc/src/phonedirectorymodel.cpp
-@@ -636,6 +636,29 @@
-    return nullptr;
+diffa/lrc/src/useractionmodel.cpp b/src/useractionmodel.cpp
+indea/lrc/x 9c780e3..54ebec8 100644
+--- a/lrc/src/useractionmodel.cpp
++++ a/lrc/src/useractionmodel.cpp
+@@ -677,6 +677,9 @@ bool UserActionModel::setData(const QModelIndex& index, const QVariant &value, i
+ 
+ bool UserActionModel::isActionEnabled( UserActionModel::Action action ) const
+ {
++   if (!d_ptr->m_pCall)
++      return false;
++
+    return d_ptr->availableActionMap[action][d_ptr->m_pCall->state()];
  }
  
-+
-+/** Filter the existing CMs for an URI without flooding the model with merge
-+ * candidates.
-+ *
-+ * This should help reduce the number of accidental duplicates once its
-+ * usage spread over the code. It also reduce the boilerplate code.
-+ **/
-+ContactMethod* PhoneDirectoryModel::getExistingNumberIf(const URI& uri, const std::function<bool(const ContactMethod*)>& pred) const
-+{
-+   // Prevent the most obvious duplicates
-+   const URI strippedUri(uri);
-+
-+   //See if the number is already loaded
-+   const NumberWrapper* w = d_ptr->m_hDirectory[strippedUri];
-+
-+   if (!w)
-+      return nullptr;
-+
-+   const auto iter = std::find_if(std::begin(w->numbers), std::end(w->numbers), pred);
-+
-+   return (iter != std::end(w->numbers)) ? *iter : nullptr;
-+}
-+
- QVector<ContactMethod*> PhoneDirectoryModel::getNumbersByPopularity() const
- {
-    return d_ptr->m_lPopularityIndex;
---- a/lrc/src/phonedirectorymodel.h
-+++ b/lrc/src/phonedirectorymodel.h
-@@ -19,6 +19,9 @@
+diffa/lrc/src/call.h b/src/call.h
+indea/lrc/x ef6dec3..8ff4183 100644
+--- a/lrc/src/call.h
++++ a/lrc/src/call.h
+@@ -347,7 +347,7 @@ class  LIB_EXPORT Call : public ItemBase
+    //Mutators
+    template<typename T>
+    T* addOutgoingMedia(bool useExisting = true);
+-   void appendText(const QString& str);
++   Q_INVOKABLE void appendText(const QString& str);
+    void backspaceItemText();
+    void reset();
+    bool joinToParent();
+diffa/lrc/src/callmodel.h b/src/callmodel.h
+indea/lrc/x 38ff704..935870b 100644
+--- a/lrc/src/callmodel.h
++++ a/lrc/src/callmodel.h
+@@ -76,7 +76,8 @@ Q_OBJECT
+    Q_PROPERTY(bool             isValid         READ isValid         )
+    Q_PROPERTY(bool             hasConference   READ hasConference   )
+    Q_PROPERTY(bool             isConnected     READ isConnected     )
+-   Q_PROPERTY(UserActionModel* userActionModel READ userActionModel )
++   Q_PROPERTY(Call*            selectedCall    READ selectedCall    )
++   Q_PROPERTY(UserActionModel* userActionModel READ userActionModel CONSTANT)
  
- #include "typedefs.h"
+    //Call related
+    Q_INVOKABLE Call*       dialingCall       ( const QString& peerName=QString(), Account* account=nullptr, Call* parent = nullptr );
+@@ -104,7 +105,7 @@ Q_OBJECT
+    bool                 hasConference       () const;
+    bool                 isConnected         () const;
+    UserActionModel*     userActionModel     () const;
+-   QItemSelectionModel* selectionModel      () const;
++   Q_INVOKABLE QItemSelectionModel* selectionModel() const;
  
-+// STD
-+#include <functional>
-+
- //Qt
- #include <QtCore/QString>
- #include <QtCore/QAbstractTableModel>
-@@ -83,6 +86,8 @@
-    Q_INVOKABLE ContactMethod* fromHash (const QString& hash);
-    Q_INVOKABLE ContactMethod* fromTemporary(const TemporaryContactMethod* number);
+    Q_INVOKABLE Call* getCall ( const QModelIndex& idx ) const;
+    Q_INVOKABLE QList<Call*> getConferenceParticipants(Call *conf) const;
+diffa/lrc/src/private/videorenderermanager.h b/src/private/videorenderermanager.h
+indea/lrc/x b323e50..d804f07 100644
+--- a/lrc/src/private/videorenderermanager.h
++++ a/lrc/src/private/videorenderermanager.h
+@@ -73,8 +73,8 @@ public Q_SLOTS:
+ Q_SIGNALS:
+    ///The preview started/stopped
+    void previewStateChanged(bool startStop);
+-   void previewStarted(Video::Renderer* Renderer);
+-   void previewStopped(Video::Renderer* Renderer);
++   void previewStarted(Video::Renderer* renderer);
++   void previewStopped(Video::Renderer* renderer);
  
-+   ContactMethod* getExistingNumberIf(const URI& uri, const std::function<bool(const ContactMethod*)>& pred) const;
-+
-    //Getter
-    int count() const;
-    bool callWithAccount() const;
---- a/lrc/src/securityevaluationmodel.cpp
-+++ b/lrc/src/securityevaluationmodel.cpp
-@@ -43,8 +43,8 @@
-    /*VERIFY_ANSWER_ENABLED       */QObject::tr("The \"verify answer certificate\" option is disabled, this leave you vulnerable to man in the middle attack"),
-    /*REQUIRE_CERTIFICATE_ENABLED */QObject::tr("None of your certificate provide a private key, this is required. Please select a private key"
-                                        " or use a certificate with one built-in"),
--   /*NOT_MISSING_CERTIFICATE     */QObject::tr("No certificate authority is provided, it won't be possible to validate if the answer certificates are valid. Some account may also not work."),
--   /*NOT_MISSING_CERTIFICATE     */QObject::tr("No certificate has been provided. This is, for now, unsupported by Ring"),
-+   /* NOT_MISSING_CERTIFICATE    */QObject::tr("No certificate has been provided. This is, for now, unsupported by Ring"),
-+   /* NOT_MISSING_AUTHORITY      */QObject::tr("No certificate authority is provided, it won't be possible to validate if the answer certificates are valid. Some account may also not work."),
  };
  
- static const QString s1 = QObject::tr("Your certificate is expired, please contact your system administrator.");
-@@ -60,7 +60,7 @@
-    /* VERIFY_ANSWER_ENABLED            */ SecurityEvaluationModel::SecurityLevel::MEDIUM      ,
-    /* REQUIRE_CERTIFICATE_ENABLED      */ SecurityEvaluationModel::SecurityLevel::WEAK        ,
-    /* NOT_MISSING_CERTIFICATE          */ SecurityEvaluationModel::SecurityLevel::WEAK        ,
--   /* NOT_MISSING_AUTHORITY            */ SecurityEvaluationModel::SecurityLevel::NONE        , //This won't work
-+   /* NOT_MISSING_AUTHORITY            */ SecurityEvaluationModel::SecurityLevel::ACCEPTABLE  ,
- }};
- 
- const TypedStateMachine< SecurityEvaluationModel::Severity , SecurityEvaluationModel::AccountSecurityChecks >
-@@ -73,7 +73,7 @@
-    /* VERIFY_ANSWER_ENABLED             */ SecurityEvaluationModel::Severity::ISSUE           ,
-    /* REQUIRE_CERTIFICATE_ENABLED       */ SecurityEvaluationModel::Severity::ISSUE           ,
-    /* NOT_MISSING_CERTIFICATE           */ SecurityEvaluationModel::Severity::WARNING         ,
--   /* NOT_MISSING_AUTHORITY             */ SecurityEvaluationModel::Severity::ERROR           ,
-+   /* NOT_MISSING_AUTHORITY             */ SecurityEvaluationModel::Severity::INFORMATION     ,
- }};
- 
- const TypedStateMachine< SecurityEvaluationModel::SecurityLevel , Certificate::Checks > SecurityEvaluationModelPrivate::maximumCertificateSecurityLevel = {{
+diffa/lrc/src/useractionmodel.cpp b/src/useractionmodel.cpp
+indea/lrc/x 54ebec8..73a2335 100644
 --- a/lrc/src/useractionmodel.cpp
-+++ b/lrc/src/useractionmodel.cpp
-@@ -29,6 +29,7 @@
- #include "accountmodel.h"
- #include "contactmethod.h"
- #include "availableaccountmodel.h"
-+#include "phonedirectorymodel.h"
- #include "globalinstances.h"
- #include "interfaces/pixmapmanipulatori.h"
- #include "interfaces/actionextenderi.h"
-@@ -157,7 +158,7 @@
-  { UAMA::EMAIL_CONTACT     , {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
-  { UAMA::COPY_CONTACT      , {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
-  { UAMA::BOOKMARK          , {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
-- { UAMA::VIEW_CHAT_HISTORY , {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
-+ { UAMA::VIEW_CHAT_HISTORY , {{co, { false, true  , true , true , true , true , true , true , true , true , true , true , false, false, true , true , true  }}}},
-  { UAMA::ADD_CONTACT_METHOD, {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
-  { UAMA::CALL_CONTACT      , {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
-  { UAMA::EDIT_CONTACT      , {{co, { false, true  , true , true , false, true , true , true , true , true , true , true , false, false, true , true , true  }}}},
-@@ -358,7 +359,7 @@
-    { UAMA::EMAIL_CONTACT     , UAM::Context::CONTACT     },
-    { UAMA::COPY_CONTACT      , UAM::Context::MANAGEMENT  },
-    { UAMA::BOOKMARK          , UAM::Context::MANAGEMENT  },
--   { UAMA::VIEW_CHAT_HISTORY , UAM::Context::MANAGEMENT  },
-+   { UAMA::VIEW_CHAT_HISTORY , UAM::Context::RECOMMENDED },
-    { UAMA::ADD_CONTACT_METHOD, UAM::Context::MANAGEMENT  },
-    { UAMA::CALL_CONTACT      , UAM::Context::CONTACT     },
-    { UAMA::EDIT_CONTACT      , UAM::Context::CONTACT     },
-@@ -410,7 +411,7 @@
-    { UAMA::EMAIL_CONTACT     , {{ true ,    true ,     true ,  false,    true ,        false     }}},
-    { UAMA::COPY_CONTACT      , {{ true ,    true ,     true ,  false,    true ,        false     }}},
-    { UAMA::BOOKMARK          , {{ true ,    true ,     true ,  false,    true ,        false     }}},
--   { UAMA::VIEW_CHAT_HISTORY , {{ true ,    true ,     true ,  false,    true ,        false     }}},
-+   { UAMA::VIEW_CHAT_HISTORY , {{ true ,    true ,     true ,  true ,    true ,        true      }}},
-    { UAMA::ADD_CONTACT_METHOD, {{ true ,    true ,     true ,  false,    true ,        false     }}},
-    { UAMA::CALL_CONTACT      , {{ true ,    true ,     true ,  false,    true ,        false     }}},
-    { UAMA::EDIT_CONTACT      , {{ true ,    true ,     true ,  false,    true ,        false     }}},
-@@ -478,27 +479,33 @@
-    { UAMA::JOIN              , nullptr                                         },
-    { UAMA::ADD_NEW           , nullptr                                         },
-    { UAMA::TOGGLE_VIDEO      , nullptr                                         },
--   { UAMA::ADD_CONTACT       , CM_CB { return (!cm->contact())
-+   { UAMA::ADD_CONTACT       , CM_CB { return (!cm) || (!cm->contact())
-       || cm->contact()->isPlaceHolder();
-    }},
--   { UAMA::ADD_TO_CONTACT    , CM_CB { return !cm->contact();                 }},
--   { UAMA::DELETE_CONTACT    , CM_CB { return cm->contact() &&
-+   { UAMA::ADD_TO_CONTACT    , CM_CB { return (!cm) || !cm->contact();        }},
-+   { UAMA::DELETE_CONTACT    , CM_CB { return cm && cm->contact() &&
-       cm->contact()->collection() &&
-       cm->contact()->collection()->supportedFeatures() &
-          CollectionInterface::SupportedFeatures::REMOVE;
-    }},
--   { UAMA::EMAIL_CONTACT     , CM_CB { return cm->contact() &&
-+   { UAMA::EMAIL_CONTACT     , CM_CB { return cm && cm->contact() &&
-       !cm->contact()->preferredEmail().isEmpty();
-    }},
--   { UAMA::COPY_CONTACT      , CM_CB { return cm->contact();                  }},
-+   { UAMA::COPY_CONTACT      , CM_CB { return cm && cm->contact();            }},
-    { UAMA::BOOKMARK          , nullptr                                         },
--   { UAMA::VIEW_CHAT_HISTORY , CM_CB { return cm->textRecording()
--       && !cm->textRecording()->isEmpty();
-+   { UAMA::VIEW_CHAT_HISTORY , CM_CB {
-+       return cm && ((
-+          cm->textRecording()
-+          && !cm->textRecording()->isEmpty()
-+       ) || (
-+           cm->protocolHint() == URI::ProtocolHint::RING_USERNAME ||
-+           cm->protocolHint() == URI::ProtocolHint::RING
-+       ));
-    }},
--   { UAMA::ADD_CONTACT_METHOD, CM_CB { return cm->contact();                  }},
--   { UAMA::CALL_CONTACT      , CM_CB { return cm->isReachable();              }},
--   { UAMA::EDIT_CONTACT      , CM_CB { return cm->contact();                  }},
--   { UAMA::REMOVE_HISTORY    , CM_CB { return cm->callCount();                }},
-+   { UAMA::ADD_CONTACT_METHOD, CM_CB { return cm && cm->contact();            }},
-+   { UAMA::CALL_CONTACT      , CM_CB { return (!cm) || cm->isReachable();     }},
-+   { UAMA::EDIT_CONTACT      , CM_CB { return cm && cm->contact();            }},
-+   { UAMA::REMOVE_HISTORY    , CM_CB { return cm && cm->callCount();          }},
- };
- #undef CM_CB
- 
-@@ -523,7 +530,7 @@
-       { UAMA::EMAIL_CONTACT     , QObject::tr("Email contact"          )},
-       { UAMA::COPY_CONTACT      , QObject::tr("Copy contact"           )},
-       { UAMA::BOOKMARK          , QObject::tr("Bookmark"               )},
--      { UAMA::VIEW_CHAT_HISTORY , QObject::tr("View chat history"      )},
-+      { UAMA::VIEW_CHAT_HISTORY , QObject::tr("Open chat"              )},
-       { UAMA::ADD_CONTACT_METHOD, QObject::tr("Add phone number"       )},
-       { UAMA::CALL_CONTACT      , QObject::tr("Call again"             )},
-       { UAMA::EDIT_CONTACT      , QObject::tr("Edit contact details"   )},
-@@ -590,6 +597,7 @@
-       setSelectionModel(callmodel->selectionModel());
-       connect(callmodel, &CallModel::callStateChanged , d_ptr.data(), &UserActionModelPrivate::updateActions);
-       connect(callmodel, &CallModel::mediaStateChanged, d_ptr.data(), &UserActionModelPrivate::updateActions);
-+      connect(callmodel, &CallModel::dialNumberChanged, d_ptr.data(), &UserActionModelPrivate::updateActions);
-    }
-    //TODO add other relevant models here Categorized*, RecentModel, etc
- 
-@@ -829,8 +837,11 @@
- 
- bool UserActionModelPrivate::updateByContactMethod(UserActionModel::Action action, const ContactMethod* cm)
++++ a/lrc/src/useractionmodel.cpp
+@@ -612,11 +612,11 @@ UserActionModel::~UserActionModel()
+ QHash<int,QByteArray> UserActionModel::roleNames() const
  {
-+   // Some actions have a conditional CM
-    if (!cm)
--      return false;
-+      return cmActionAvailability[action] ?
-+         cmActionAvailability[action](nullptr) : true;
+    static QHash<int, QByteArray> roles = QAbstractItemModel::roleNames();
+-   /*static bool initRoles = false;
++   static bool initRoles = false;
+    if (!initRoles) {
+       initRoles = true;
+-
+-   }*/
++      roles[(int)Role::ACTION] = "action";
++   }
+    return roles;
+ }
+ 
+@@ -1177,7 +1177,7 @@ bool UserActionModel::execute(const QModelIndex& idx) const
+ }
+ 
+ ///Get a model filter with only the available actions
+-QSortFilterProxyModel* UserActionModel::activeActionModel() const
++QAbstractItemModel* UserActionModel::activeActionModel() const
+ {
+    if (!d_ptr->m_pActiveModel)
+       d_ptr->m_pActiveModel = new ActiveUserActionModel(const_cast<UserActionModel*>(this));
+diffa/lrc/src/useractionmodel.h b/src/useractionmodel.h
+indea/lrc/x 12014e2..df57b2c 100644
+--- a/lrc/src/useractionmodel.h
++++ a/lrc/src/useractionmodel.h
+@@ -127,7 +127,7 @@ class LIB_EXPORT UserActionModel : public QAbstractListModel {
+    };
+    Q_FLAGS(Context)
+ 
+-   Q_PROPERTY(QSortFilterProxyModel* activeActionModel READ activeActionModel)
++   Q_PROPERTY(QAbstractItemModel* activeActionModel READ activeActionModel CONSTANT)
+ 
+    //Constructor
+    explicit UserActionModel(Call* parent     , const FlagPack<Context> c = FlagPack<Context>(Context::MINIMAL)| Context::RECOMMENDED);
+@@ -144,13 +144,13 @@ class LIB_EXPORT UserActionModel : public QAbstractListModel {
+    //Getters
+    Q_INVOKABLE bool isActionEnabled ( UserActionModel::Action action ) const;
+    Q_INVOKABLE uint relativeIndex   ( UserActionModel::Action action ) const;
+-   QSortFilterProxyModel* activeActionModel() const;
++   QAbstractItemModel* activeActionModel() const;
+ 
+    //Setters
+    void setSelectionModel(QItemSelectionModel* sm);
+ 
+    //Mutators
+-   bool execute( const Action action    ) const;
++   Q_INVOKABLE bool execute( const Action action    ) const;
+    bool execute( const QModelIndex& idx ) const;
+ 
+    //Operators
+diffa/lrc/src/video/previewmanager.h b/src/video/previewmanager.h
+indea/lrc/x a0a14c8..cd72dd2 100644
+--- a/lrc/src/video/previewmanager.h
++++ a/lrc/src/video/previewmanager.h
+@@ -35,6 +35,8 @@ class LIB_EXPORT PreviewManager : public QObject
+    Q_OBJECT
+ 
+ public:
++    Q_PROPERTY(bool previewing READ isPreviewing NOTIFY previewStateChanged)
 +
-    Account* a = cm->account() ? cm->account() : AvailableAccountModel::instance().currentDefaultAccount();
+    //Singleton
+    static PreviewManager& instance();
  
-    return updateByAccount(action, a) && (
-@@ -901,7 +912,7 @@
+diffa/lrc/src/useractionmodel.cpp b/src/useractionmodel.cpp
+indea/lrc/x 73a2335..7fac751 100644
+--- a/lrc/src/useractionmodel.cpp
++++ a/lrc/src/useractionmodel.cpp
+@@ -988,15 +988,35 @@ bool UserActionModel::execute(const UserActionModel::Action action) const
+    // For now, only handle single selection, multi-selection could be
+    // re-enabled later
  
-                      const auto cm = qvariant_cast<ContactMethod*>(idx.data(static_cast<int>(Ring::Role::Object)));
- 
--                     ret &= updateByContactMethod( action, cm );
-+                     ret &= cm ? updateByContactMethod( action, cm ) : false;
- 
-                      break;
-                   }
-@@ -911,12 +922,27 @@
- 
-                      ret &= updateByCall( action, c );
- 
-+                     // Dialing (search field) calls have a new URI with every
-+                     // keystroke. Check is such URI match an existing one. This
-+                     // changes the availability of some actions. For example,
-+                     // the offline chat only works for Ring CM *or* SIP CM with
-+                     // an existing chat history.
-+                     if (c->state() == Call::State::DIALING) {
-+                        ret &= updateByContactMethod(
-+                          action, PhoneDirectoryModel::instance().getExistingNumberIf(
-+                             c->peerContactMethod()->uri(),
-+                             [](const ContactMethod* cm) -> bool { return cm->account();}
-+                          )
-+                        );
-+                     }
+-   // TODO This will be cleaned up later
+-   if (! d_ptr->m_pSelectionModel->hasSelection () && action == UserActionModel::Action::ADD_NEW) {
+-      if (UserActions::addNew()) {
+-         d_ptr->updateActions();
+-         return true;
+-      }
++   // The ADD_NEW action can when no selection is present
++   switch(d_ptr->m_Mode) {
++      case UserActionModelPrivate::UserActionModelMode::GENERIC:
++         if ((!d_ptr->m_pSelectionModel) || !d_ptr->m_pSelectionModel->hasSelection())
++            break;
 +
-                      updateCheckMask( state ,action, c ); //TODO abstract this out
++         #pragma GCC diagnostic push
++         #pragma GCC diagnostic ignored "-Wswitch"
++         switch(action) {
++            case UserActionModel::Action::ADD_NEW:
++               if (UserActions::addNew()) {
++                  d_ptr->updateActions();
++                  return true;
++               }
++               break;
++         }
++         #pragma GCC diagnostic pop
++
++      case UserActionModelPrivate::UserActionModelMode::CALL:
++         // There is always an implicit selection on the Call::userActionModel
++         break;
+    }
  
-                      break;
-                   }
-                   case Ring::ObjectType::Media          : //TODO
-                   case Ring::ObjectType::Certificate    : //TODO
-+                  case Ring::ObjectType::ContactRequest   : //TODO
-                   case Ring::ObjectType::COUNT__        :
-                      break;
-                }
-@@ -1004,6 +1030,7 @@
-             break;
-          case Ring::ObjectType::Media          : //TODO
-          case Ring::ObjectType::Certificate    : //TODO
-+         case Ring::ObjectType::ContactRequest   : //TODO
-          case Ring::ObjectType::COUNT__        :
-             break;
+-   foreach (const QModelIndex& idx, d_ptr->m_pSelectionModel->selectedRows()) {
++   // Get the indexes of the selected objects
++   const QModelIndexList selected = d_ptr->m_pSelectionModel ?
++      d_ptr->m_pSelectionModel->selectedRows() :
++      QModelIndexList{CallModel::instance().getIndex(d_ptr->m_pCall)};
++
++   for (const auto& idx : selected) {
+       const QVariant objTv = idx.data(static_cast<int>(Ring::Role::ObjectType));
+ 
+       //Be sure the model support the UAM abstraction
+@@ -1201,3 +1221,4 @@ void UserActionModel::setSelectionModel(QItemSelectionModel* sm)
+ }
+ 
+ #include <useractionmodel.moc>
++// kate: space-indent on; indent-width 3; replace-tabs on;
+diffa/lrc/src/call.h b/src/call.h
+indea/lrc/x 8ff4183..ae58b57 100644
+--- a/lrc/src/call.h
++++ a/lrc/src/call.h
+@@ -265,7 +265,7 @@ class  LIB_EXPORT Call : public ItemBase
+    Q_PROPERTY( uint               stopTimeStamp      READ stopTimeStamp                             )
+    Q_PROPERTY( uint               startTimeStamp     READ startTimeStamp                            )
+    Q_PROPERTY( bool               isSecure           READ isSecure                                  )
+-   Q_PROPERTY( Video::Renderer*   videoRenderer      READ videoRenderer                             )
++   Q_PROPERTY( Video::Renderer*   videoRenderer      READ videoRenderer     NOTIFY videoStarted     )
+    Q_PROPERTY( QString            formattedName      READ formattedName                             )
+    Q_PROPERTY( QString            length             READ length                                    )
+    Q_PROPERTY( bool               recordingAV        READ isAVRecording                             )
+diffa/lrc/src/callmodel.cpp b/src/callmodel.cpp
+indea/lrc/x 79c406f..55092bf 100644
+--- a/lrc/src/callmodel.cpp
++++ a/lrc/src/callmodel.cpp
+@@ -992,12 +992,17 @@ QModelIndex CallModel::parent( const QModelIndex& idx) const
+ ///Get the call index at row,column (active call only)
+ QModelIndex CallModel::index( int row, int column, const QModelIndex& parentIdx) const
+ {
+-   if (row >= 0 && !parentIdx.isValid() && d_ptr->m_lInternalModel.size() > row) {
++   if (row >= 0 && !parentIdx.isValid() && d_ptr->m_lInternalModel.size() > row)
+       return createIndex(row,column,d_ptr->m_lInternalModel[row]);
+-   }
+-   else if (row >= 0 && parentIdx.isValid() && d_ptr->m_lInternalModel[parentIdx.row()]->m_lChildren.size() > row) {
++
++   if (!parentIdx.isValid())
++      return {};
++
++   if (row < 0 || parentIdx.row() >= d_ptr->m_lInternalModel.size())
++      return {};
++
++   if (d_ptr->m_lInternalModel[parentIdx.row()]->m_lChildren.size() > row)
+       return createIndex(row,column,d_ptr->m_lInternalModel[parentIdx.row()]->m_lChildren[row]);
+-   }
+ 
+    return QModelIndex();
+ }
+diffa/lrc/src/certificatemodel.cpp b/src/certificatemodel.cpp
+indea/lrc/x a2ce65b..9eac493 100644
+--- a/lrc/src/certificatemodel.cpp
++++ a/lrc/src/certificatemodel.cpp
+@@ -237,8 +237,18 @@ void CertificateNode::setStrings(const QString& col1, const QVariant& col2, cons
+ 
+ CertificateNode* CertificateModelPrivate::createCategory(const QString& name, const QString& col2, const QString& tooltip )
+ {
++   QMutexLocker l(&m_CertLoader);
+    const int idx = m_lTopLevelNodes.size();
+ 
++   // This should be avoided whenever possible. Having a duplicate would be
++   // both a memory leak and a potential collision attack (far fetched).
++   // This code avoids leak, but has side effects.
++   if (m_hStrToCat.contains(name)) {
++      qWarning() << "Trying to create a certificate node with an already used id."
++         " This can have unforneen consequences";
++      return m_hStrToCat[name];
++   }
++
+    CertificateNode* n = new CertificateNode(idx, CertificateModel::NodeType::CATEGORY, nullptr, nullptr);
+    n->setStrings(name,col2,tooltip);
+ 
+@@ -297,7 +307,7 @@ void CertificateModelPrivate::removeFromTree(Certificate* c, CertificateNode* ca
+ 
+ CertificateNode* CertificateModelPrivate::getCategory(const Account* a)
+ {
+-   CertificateNode* cat = m_hAccToCat[a];
++   CertificateNode* cat = m_hAccToCat.value(a);
+ 
+    if (!cat) {
+       cat = createCategory(a->alias(),QString(),QString());
+@@ -321,7 +331,7 @@ CertificateNode* CertificateModelPrivate::addToTree(Certificate* cert, Account*
+ 
+ void CertificateModelPrivate::regenChecks(Certificate* cert)
+ {
+-   CertificateNode* n = m_hNodes[cert];
++   CertificateNode* n = m_hNodes.value(cert);
+ 
+    if (!n)
+       return;
+@@ -334,6 +344,7 @@ void CertificateModelPrivate::regenChecks(Certificate* cert)
+ //[Re]generate the checks
+ void CertificateModelPrivate::loadChecks(CertificateNode* checks, Certificate* cert)
+ {
++   QMutexLocker locker(&m_CertLoader);
+    const QModelIndex checksI(q_ptr->createIndex(checks->m_Index,static_cast<int>(CertificateModel::Columns::NAME ),checks));
+ 
+    //Clear the existing nodes
+@@ -368,13 +379,14 @@ void CertificateModelPrivate::loadChecks(CertificateNode* checks, Certificate* c
+ 
+ CertificateNode* CertificateModelPrivate::addToTree(Certificate* cert, CertificateNode* category)
+ {
+-   QMutexLocker locker(&m_CertLoader);
+-
+    if (!category)
+       category = defaultCategory();
+ 
++   // defaultCategory(); can request the mutex
++   QMutexLocker locker(&m_CertLoader);
++
+    //Do not add it twice
+-   CertificateNode* node = CertificateModel::instance().d_ptr->m_hNodes[cert];
++   CertificateNode* node = CertificateModel::instance().d_ptr->m_hNodes.value(cert);
+ 
+    if (isPartOf(node, category))
+       return node;
+@@ -391,24 +403,41 @@ CertificateNode* CertificateModelPrivate::addToTree(Certificate* cert, Certifica
+ 
+    //Lazy loaded function to reduce the overhead of this (mostly hidden) model
+    node->m_fLoader = [this,node,cert]() {
++      CertificateNode* checks = nullptr;
++      { // mutex
+       node->m_Col1 = cert->detailResult(Certificate::Details::PUBLIC_KEY_ID).toString();
+       node->m_IsLoaded = true;
+       const QModelIndex index = q_ptr->createIndex(node->m_Index,static_cast<int>(CertificateModel::Columns::NAME ),node);
+ 
++      CertificateNode* details = nullptr;
++
+       //Insert the check and details categories
++      { // mutex
++      QMutexLocker locker(&m_CertLoader);
+       q_ptr->beginInsertRows(index, 0, 1);
+-      CertificateNode* details = new CertificateNode(static_cast<int>(CertificateModel::Columns::NAME ), CertificateModel::NodeType::DETAILS_CATEGORY, node, nullptr);
+-      CertificateNode* checks  = new CertificateNode(static_cast<int>(CertificateModel::Columns::VALUE), CertificateModel::NodeType::DETAILS_CATEGORY, node, nullptr);
++      details = new CertificateNode(static_cast<int>(CertificateModel::Columns::NAME ), CertificateModel::NodeType::DETAILS_CATEGORY, node, nullptr);
++      checks = new CertificateNode(static_cast<int>(CertificateModel::Columns::VALUE), CertificateModel::NodeType::DETAILS_CATEGORY, node, nullptr);
+       details->setStrings(QObject::tr("Details"),QString(),QObject::tr("The content of the certificate")       );
+       checks ->setStrings(QObject::tr("Checks") ,QString(),QObject::tr("Various security related information") );
+       node->m_lChildren << details;
+       node->m_lChildren << checks;
+       q_ptr->endInsertRows();
++      } // mutex
+ 
+       static const int detailsC(enum_class_size<Certificate::Details>());
+ 
+-      //Insert the details
+       const QModelIndex detailsI(q_ptr->createIndex(details->m_Index,static_cast<int>(CertificateModel::Columns::NAME ),details));
++
++      // Make sure the lazy-loaded details have been created (otherwise it will deadlock)
++      for (const Certificate::Details detail : EnumIterator<Certificate::Details>()) {
++         cert->getName       (detail);
++         cert->detailResult  (detail);
++         cert->getDescription(detail);
++      }
++
++      //Insert the details
++      { // mutex
++      QMutexLocker locker(&m_CertLoader);
+       q_ptr->beginInsertRows(detailsI, 0, detailsC - 1);
+       for (const Certificate::Details detail : EnumIterator<Certificate::Details>()) {
+          CertificateNode* d = new CertificateNode(details->m_lChildren.size(), CertificateModel::NodeType::DETAILS, details, nullptr);
+@@ -419,6 +448,9 @@ CertificateNode* CertificateModelPrivate::addToTree(Certificate* cert, Certifica
+          details->m_lChildren << d;
        }
+       q_ptr->endInsertRows();
++      } // mutex
++
++      } // mutex
+ 
+       //Insert the checks
+       this->loadChecks(checks, cert);
+@@ -592,7 +624,7 @@ Certificate* CertificateModel::getCertificateFromPath(const QString& path, Accou
+ 
+    CertificateNode* cat  = d_ptr->getCategory(a);
+ 
+-   Certificate* cert = d_ptr->m_hCertificates[path];
++   Certificate* cert = d_ptr->m_hCertificates.value(path);
+ 
+    if (!cert) {
+       cert = new Certificate(path, Certificate::Type::NONE);
+@@ -603,7 +635,7 @@ Certificate* CertificateModel::getCertificateFromPath(const QString& path, Accou
+       d_ptr->addToTree(cert,a);
+    }
+ 
+-   CertificateNode* node = d_ptr->m_hNodes[cert];
++   CertificateNode* node = d_ptr->m_hNodes.value(cert);
+ 
+    if (node) {
+       if (node->m_pParent != cat) {
+@@ -618,7 +650,7 @@ Certificate* CertificateModel::getCertificateFromPath(const QString& path, Certi
+ {
+    const QString id = path;
+ 
+-   Certificate* cert = d_ptr->m_hCertificates[id];
++   Certificate* cert = d_ptr->m_hCertificates.value(id);
+ 
+    //The certificate is not loaded yet
+    if (!cert) {
+@@ -635,7 +667,7 @@ Certificate* CertificateModel::getCertificateFromPath(const QString& path, Certi
+ 
+ Certificate* CertificateModel::getCertificateFromId(const QString& id, Account* a, const QString& category)
+ {
+-   Certificate* cert = d_ptr->m_hCertificates[id];
++   Certificate* cert = d_ptr->m_hCertificates.value(id);
+ 
+    //The certificate is not loaded yet
+    if (!cert) {
+@@ -643,7 +675,7 @@ Certificate* CertificateModel::getCertificateFromId(const QString& id, Account*
+       d_ptr->m_hCertificates[id.toLatin1()] = cert;
+ 
+       if ((!a) && (!category.isEmpty())) {
+-         CertificateNode* cat = d_ptr->m_hStrToCat[category];
++         CertificateNode* cat = d_ptr->m_hStrToCat.value(category);
+ 
+          if (!cat) {
+             cat = d_ptr->createCategory(category, a?QString("%1 certificates").arg(a->alias()):QString(), QString());
+@@ -760,7 +792,7 @@ QAbstractItemModel* CertificateModelPrivate::model(const Certificate* cert) cons
+ {
+    if (!cert)
+       return nullptr;
+-   return const_cast<CertificateModelPrivate*>(this)->getModelCommon(m_hNodes[cert]);
++   return const_cast<CertificateModelPrivate*>(this)->getModelCommon(m_hNodes.value(cert));
+ }
+ 
+ /**
+@@ -771,7 +803,7 @@ QAbstractItemModel* CertificateModelPrivate::checksModel(const Certificate* cert
+    if (!cert)
+       return nullptr;
+ 
+-   CertificateNode* node = m_hNodes[cert];
++   CertificateNode* node = m_hNodes.value(cert);
+ 
+    if (!node)
+       return nullptr;
+@@ -827,7 +859,7 @@ QAbstractItemModel* CertificateModelPrivate::createKnownList(const Account* a) c
+ 
+ QAbstractItemModel* CertificateModelPrivate::createBannedList(const Account* a) const
+ {
+-   QAbstractItemModel* m = m_hAccBan[a];
++   QAbstractItemModel* m = m_hAccBan.value(a);
+ 
+    if (m)
+       return m;
+@@ -844,7 +876,7 @@ QAbstractItemModel* CertificateModelPrivate::createBannedList(const Account* a)
+ 
+ QAbstractItemModel* CertificateModelPrivate::createAllowedList(const Account* a) const
+ {
+-   QAbstractItemModel* m = m_hAccAllow[a];
++   QAbstractItemModel* m = m_hAccAllow.value(a);
+ 
+    if (m)
+       return m;
+@@ -868,9 +900,9 @@ bool CertificateModelPrivate::allowCertificate(Certificate* c, Account* a)
+    createAllowedList(a);
+    createBannedList(a);
+ 
+-   CertificateNode* allow   = m_hAccAllowCat [ a ];
+-   CertificateNode* ban     = m_hAccBanCat   [ a ];
+-   CertificateNode* sibling = m_hNodes       [ c ];
++   CertificateNode* allow   = m_hAccAllowCat .value( a );
++   CertificateNode* ban     = m_hAccBanCat   .value( a );
++   CertificateNode* sibling = m_hNodes       .value( c );
+ 
+    //Check if it's already there
+    if (isPartOf(sibling, allow))
+@@ -907,9 +939,9 @@ bool CertificateModelPrivate::banCertificate(Certificate* c, Account* a)
+    createAllowedList(a);
+    createBannedList(a);
+ 
+-   CertificateNode* allow   = m_hAccAllowCat [ a ];
+-   CertificateNode* ban     = m_hAccBanCat   [ a ];
+-   CertificateNode* sibling = m_hNodes       [ c ];
++   CertificateNode* allow   = m_hAccAllowCat .value( a );
++   CertificateNode* ban     = m_hAccBanCat   .value( a );
++   CertificateNode* sibling = m_hNodes       .value( c );
+ 
+    //Check if it's already there
+    if (isPartOf(sibling, ban))
+diffa/lrc/src/accountmodel.h b/src/accountmodel.h
+indea/lrc/x 93ef22d..af7ee95 100644
+--- a/lrc/src/accountmodel.h
++++ a/lrc/src/accountmodel.h
+@@ -68,7 +68,7 @@ class LIB_EXPORT AccountModel : public QAbstractListModel {
+    Q_INVOKABLE Account* getById                     ( const QByteArray& id, bool ph = false) const;
+    int                  size                        (                                      ) const;
+    Account*             getAccountByModelIndex      ( const QModelIndex& item              ) const;
+-   static QString       getSimilarAliasIndex        ( const QString& alias                 )      ;
++   Q_INVOKABLE static QString getSimilarAliasIndex  ( const QString& alias                 )      ;
+    Account*             ip2ip                       (                                      ) const;
+    QList<Account*>      getAccountsByProtocol       ( const Account::Protocol protocol     ) const;
+    bool                 isPresenceEnabled           (                                      ) const;
