@@ -63,31 +63,12 @@ override_dh_auto_configure:
 				--prefix=/usr \
 				--disable-shared
 
-	#############################
-	## libringclient configure ##
-	#############################
-	cd lrc && \
-		mkdir build && \
-		cd build && \
-		cmake  \
-			-DRING_BUILD_DIR=$(CURDIR)/daemon/src \
-			-DCMAKE_INSTALL_PREFIX=/usr \
-			-DCMAKE_BUILD_TYPE=Debug \
-			..
-
-	dh_auto_configure
-
 override_dh_auto_build:
 	#######################
 	## Ring Daemon build ##
 	#######################
 	make -C daemon -j$(NO_CPUS) V=1
 	pod2man daemon/man/dring.pod > daemon/dring.1
-
-	#########################
-	## libringclient build ##
-	#########################
-	make -C lrc/build -j$(NO_CPUS) V=1
 
 override_dh_auto_clean:
 	################################
@@ -102,12 +83,6 @@ override_dh_auto_clean:
 	rm -rfv daemon/contrib/native
 	rm -rfv daemon/dring.1
 
-	#########################
-	## libringclient clean ##
-	#########################
-	if [ -f lrc/build/Makefile ]; then make -C lrc/build distclean; fi
-	rm -rfv lrc/build
-
 override_dh_auto_install:
 	#########################
 	## Ring Daemon install ##
@@ -118,20 +93,6 @@ override_dh_auto_install:
 	rm -rfv $(CURDIR)/debian/ring-daemon/usr/lib/*.la
 
 	cd daemon && make DESTDIR=$(CURDIR)/debian/tmp install
-
-	###########################
-	## libringclient install ##
-	###########################
-	cd lrc/build && make DESTDIR=$(CURDIR)/debian/ring install
-	rm -rfv $(CURDIR)/debian/ring/usr/include
-
-	# This is a symlink, should be in -dev package
-	rm -v $(CURDIR)/debian/ring/usr/lib/libringclient.so
-
-	# cmake files
-	rm -rfv $(CURDIR)/debian/ring/usr/lib/cmake
-
-	cd lrc/build && make DESTDIR=$(CURDIR)/debian/tmp install
 
 tmpdir:= $(shell mktemp -d)
 workdir:= $(shell pwd)
