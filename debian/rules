@@ -54,7 +54,6 @@ override_dh_auto_configure:
 				--disable-vpx \
 				--disable-x264 \
 				--disable-yaml-cpp \
-				--disable-gmp \
 				--disable-natpmp && \
 		make list && \
 		make -j$(NO_CPUS) V=1
