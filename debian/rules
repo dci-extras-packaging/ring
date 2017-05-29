@@ -37,6 +37,7 @@ override_dh_auto_configure:
 				--disable-downloads \
 				--no-checksums \
 				--enable-opendht \
+				--enable-gnutls \
 				--enable-pjproject \
 				--disable-ogg \
 				--disable-flac \
@@ -190,3 +191,6 @@ get-orig-source:
 
 	# Clear the temp dir
 	rm -rf ${tmpdir}
+
+override_dh_clean:
+	dh_clean -X.bak -X.orig
