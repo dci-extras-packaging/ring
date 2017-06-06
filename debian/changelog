@@ -1,4 +1,4 @@
-ring (20170524.2.745efce~dfsg1-1) UNRELEASED; urgency=medium
+ring (20170601.1.79f748e~dfsg1-1) UNRELEASED; urgency=medium
 
   * New upstream snapshot
   * d/copyright: exclude client-uwp/*
