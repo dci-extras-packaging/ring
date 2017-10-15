@@ -6,6 +6,11 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 DPKG_EXPORT_BUILDFLAGS = 1
 include /usr/share/dpkg/buildflags.mk
 
+# Debian Bug: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=853642
+# Don't forget to remove gcc-6 from build dependencies.
+export CC=gcc-6
+export CXX=g++-6
+
 # Number of CPUS
 NO_CPUS=$(shell nproc)
 ifeq ($(NO_CPUS),0)
